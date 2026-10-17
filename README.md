@@ -2,7 +2,7 @@
 
 一个**完全离线**的 Android 中文拼音输入法。输入引擎是 [librime](https://github.com/rime/librime)，词库方案是 [雾凇拼音（Rime Ice）](https://github.com/iDvel/rime-ice)，界面用 Kotlin 手写：设置页是 Jetpack Compose，键盘本身是自绘 View。
 
-- 包名：`com.xfgken.iceime`
+- 包名：`com.xfgken.icetype`
 - `minSdk = 29`（Android 10）／`targetSdk = 37`（Android 17）
 - 仅 `arm64-v8a`
 - **不申请网络权限**，没有统计 SDK、没有账号、没有云端，输入数据只留在本机
@@ -13,7 +13,7 @@
 
 | 方式 | 说明 |
 |---|---|
-| Releases 页 | 直接下载 `IceType-v1.1.0.apk` 安装（推荐） |
+| Releases 页 | 直接下载 `IceType-v1.1.5.apk` 安装（推荐） |
 | 自行构建 | 见下面「从源码构建」 |
 
 安装后在系统的「语言和输入法」里启用「冰霜输入法」并切换为默认输入法即可。
@@ -80,7 +80,7 @@
 bash scripts/build-apk.sh
 ```
 
-只想改 Kotlin / 资源时不用动原生库，`app/src/main/jniLibs/arm64-v8a/` 里已经放好编译好的 `librime.so`、`libiceime_rime.so` 与 `libc++_shared.so`。
+只想改 Kotlin / 资源时不用动原生库，`app/src/main/jniLibs/arm64-v8a/` 里已经放好编译好的 `librime.so`、`libicetype_rime.so` 与 `libc++_shared.so`。
 
 本仓库直接包含：
 - `app/src/main/assets/rime/`：雾凇拼音完整配置与词典（6 个中文词典，合计约 1.9M 词条，压缩前 45MB）
@@ -94,7 +94,7 @@ bash scripts/build-apk.sh
 ## 工程结构
 
 ```
-app/src/main/java/com/xfgken/iceime/
+app/src/main/java/com/xfgken/icetype/
 ├── MainActivity.kt            # 唯一入口，支持 --es page <枚举名> 直达设置页
 ├── core/                      # 配置（IcePrefs）、日志（AppLog）
 ├── rime/                      # 引擎：RimeNative(JNI 声明) / RimeEngine / 资源释放 / 自检

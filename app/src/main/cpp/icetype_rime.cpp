@@ -98,7 +98,7 @@ bool ensure_api() {
 extern "C" {
 
 JNIEXPORT jstring JNICALL
-Java_com_xfgken_iceime_rime_RimeNative_nativePollNotification(JNIEnv* env, jclass) {
+Java_com_xfgken_icetype_rime_RimeNative_nativePollNotification(JNIEnv* env, jclass) {
   std::lock_guard<std::mutex> lock(g_notify_mutex);
   if (g_notifications.empty()) return nullptr;
   auto notification = g_notifications.front();
@@ -108,14 +108,14 @@ Java_com_xfgken_iceime_rime_RimeNative_nativePollNotification(JNIEnv* env, jclas
 }
 
 JNIEXPORT jstring JNICALL
-Java_com_xfgken_iceime_rime_RimeNative_nativeVersion(JNIEnv* env, jclass) {
+Java_com_xfgken_icetype_rime_RimeNative_nativeVersion(JNIEnv* env, jclass) {
   if (!ensure_api()) return to_jstring(env, "librime 不可用");
   const char* v = RIME_API_AVAILABLE(g_api, get_version) ? g_api->get_version() : nullptr;
   return to_jstring(env, v ? v : "(未知)");
 }
 
 JNIEXPORT jboolean JNICALL
-Java_com_xfgken_iceime_rime_RimeNative_nativeSetup(JNIEnv* env, jclass, jstring shared_dir,
+Java_com_xfgken_icetype_rime_RimeNative_nativeSetup(JNIEnv* env, jclass, jstring shared_dir,
                                                    jstring user_dir, jstring log_dir,
                                                    jstring version) {
   if (!ensure_api()) {
@@ -147,7 +147,7 @@ Java_com_xfgken_iceime_rime_RimeNative_nativeSetup(JNIEnv* env, jclass, jstring 
 }
 
 JNIEXPORT jboolean JNICALL
-Java_com_xfgken_iceime_rime_RimeNative_nativeInitialize(JNIEnv* env, jclass, jstring version) {
+Java_com_xfgken_icetype_rime_RimeNative_nativeInitialize(JNIEnv* env, jclass, jstring version) {
   if (!ensure_api()) return JNI_FALSE;
   std::string v = jstr(env, version);
   RimeTraits traits = {0};
@@ -165,59 +165,59 @@ Java_com_xfgken_iceime_rime_RimeNative_nativeInitialize(JNIEnv* env, jclass, jst
 }
 
 JNIEXPORT void JNICALL
-Java_com_xfgken_iceime_rime_RimeNative_nativeFinalize(JNIEnv*, jclass) {
+Java_com_xfgken_icetype_rime_RimeNative_nativeFinalize(JNIEnv*, jclass) {
   if (ensure_api()) g_api->finalize();
 }
 
 JNIEXPORT jboolean JNICALL
-Java_com_xfgken_iceime_rime_RimeNative_nativeStartMaintenance(JNIEnv*, jclass, jboolean full) {
+Java_com_xfgken_icetype_rime_RimeNative_nativeStartMaintenance(JNIEnv*, jclass, jboolean full) {
   if (!ensure_api()) return JNI_FALSE;
   return g_api->start_maintenance(full) ? JNI_TRUE : JNI_FALSE;
 }
 
 JNIEXPORT void JNICALL
-Java_com_xfgken_iceime_rime_RimeNative_nativeJoinMaintenance(JNIEnv*, jclass) {
+Java_com_xfgken_icetype_rime_RimeNative_nativeJoinMaintenance(JNIEnv*, jclass) {
   if (ensure_api()) g_api->join_maintenance_thread();
 }
 
 JNIEXPORT jboolean JNICALL
-Java_com_xfgken_iceime_rime_RimeNative_nativeIsMaintenanceMode(JNIEnv*, jclass) {
+Java_com_xfgken_icetype_rime_RimeNative_nativeIsMaintenanceMode(JNIEnv*, jclass) {
   if (!ensure_api()) return JNI_FALSE;
   return g_api->is_maintenance_mode() ? JNI_TRUE : JNI_FALSE;
 }
 
 JNIEXPORT jboolean JNICALL
-Java_com_xfgken_iceime_rime_RimeNative_nativeDeploy(JNIEnv*, jclass) {
+Java_com_xfgken_icetype_rime_RimeNative_nativeDeploy(JNIEnv*, jclass) {
   if (!ensure_api()) return JNI_FALSE;
   return g_api->deploy() ? JNI_TRUE : JNI_FALSE;
 }
 
 JNIEXPORT jboolean JNICALL
-Java_com_xfgken_iceime_rime_RimeNative_nativeDeploySchema(JNIEnv* env, jclass, jstring file) {
+Java_com_xfgken_icetype_rime_RimeNative_nativeDeploySchema(JNIEnv* env, jclass, jstring file) {
   if (!ensure_api()) return JNI_FALSE;
   return g_api->deploy_schema(jstr(env, file).c_str()) ? JNI_TRUE : JNI_FALSE;
 }
 
 JNIEXPORT jlong JNICALL
-Java_com_xfgken_iceime_rime_RimeNative_nativeCreateSession(JNIEnv*, jclass) {
+Java_com_xfgken_icetype_rime_RimeNative_nativeCreateSession(JNIEnv*, jclass) {
   if (!ensure_api()) return 0;
   return static_cast<jlong>(g_api->create_session());
 }
 
 JNIEXPORT jboolean JNICALL
-Java_com_xfgken_iceime_rime_RimeNative_nativeDestroySession(JNIEnv*, jclass, jlong session) {
+Java_com_xfgken_icetype_rime_RimeNative_nativeDestroySession(JNIEnv*, jclass, jlong session) {
   if (!ensure_api()) return JNI_FALSE;
   return g_api->destroy_session(static_cast<RimeSessionId>(session)) ? JNI_TRUE : JNI_FALSE;
 }
 
 JNIEXPORT void JNICALL
-Java_com_xfgken_iceime_rime_RimeNative_nativeCleanupStaleSessions(JNIEnv*, jclass) {
+Java_com_xfgken_icetype_rime_RimeNative_nativeCleanupStaleSessions(JNIEnv*, jclass) {
   if (!ensure_api()) return;
   if (RIME_API_AVAILABLE(g_api, cleanup_stale_sessions)) g_api->cleanup_stale_sessions();
 }
 
 JNIEXPORT jboolean JNICALL
-Java_com_xfgken_iceime_rime_RimeNative_nativeProcessKey(JNIEnv*, jclass, jlong session,
+Java_com_xfgken_icetype_rime_RimeNative_nativeProcessKey(JNIEnv*, jclass, jlong session,
                                                         jint keycode, jint mask) {
   if (!ensure_api()) return JNI_FALSE;
   return g_api->process_key(static_cast<RimeSessionId>(session), keycode, mask) ? JNI_TRUE
@@ -225,20 +225,20 @@ Java_com_xfgken_iceime_rime_RimeNative_nativeProcessKey(JNIEnv*, jclass, jlong s
 }
 
 JNIEXPORT jstring JNICALL
-Java_com_xfgken_iceime_rime_RimeNative_nativeGetInput(JNIEnv* env, jclass, jlong session) {
+Java_com_xfgken_icetype_rime_RimeNative_nativeGetInput(JNIEnv* env, jclass, jlong session) {
   if (!ensure_api()) return to_jstring(env, "");
   const char* input = g_api->get_input(static_cast<RimeSessionId>(session));
   return to_jstring(env, input ? input : "");
 }
 
 JNIEXPORT jint JNICALL
-Java_com_xfgken_iceime_rime_RimeNative_nativeGetCaretPos(JNIEnv*, jclass, jlong session) {
+Java_com_xfgken_icetype_rime_RimeNative_nativeGetCaretPos(JNIEnv*, jclass, jlong session) {
   if (!ensure_api()) return 0;
   return static_cast<jint>(g_api->get_caret_pos(static_cast<RimeSessionId>(session)));
 }
 
 JNIEXPORT void JNICALL
-Java_com_xfgken_iceime_rime_RimeNative_nativeSetCaretPos(JNIEnv*, jclass, jlong session,
+Java_com_xfgken_icetype_rime_RimeNative_nativeSetCaretPos(JNIEnv*, jclass, jlong session,
                                                          jint pos) {
   if (!ensure_api()) return;
   if (RIME_API_AVAILABLE(g_api, set_caret_pos))
@@ -246,7 +246,7 @@ Java_com_xfgken_iceime_rime_RimeNative_nativeSetCaretPos(JNIEnv*, jclass, jlong 
 }
 
 JNIEXPORT jboolean JNICALL
-Java_com_xfgken_iceime_rime_RimeNative_nativeSetInput(JNIEnv* env, jclass, jlong session,
+Java_com_xfgken_icetype_rime_RimeNative_nativeSetInput(JNIEnv* env, jclass, jlong session,
                                                       jstring input) {
   if (!ensure_api()) return JNI_FALSE;
   if (!RIME_API_AVAILABLE(g_api, set_input)) return JNI_FALSE;
@@ -256,7 +256,7 @@ Java_com_xfgken_iceime_rime_RimeNative_nativeSetInput(JNIEnv* env, jclass, jlong
 }
 
 JNIEXPORT jboolean JNICALL
-Java_com_xfgken_iceime_rime_RimeNative_nativeSelectCandidate(JNIEnv*, jclass, jlong session,
+Java_com_xfgken_icetype_rime_RimeNative_nativeSelectCandidate(JNIEnv*, jclass, jlong session,
                                                             jint index) {
   if (!ensure_api()) return JNI_FALSE;
   return g_api->select_candidate(static_cast<RimeSessionId>(session),
@@ -266,7 +266,7 @@ Java_com_xfgken_iceime_rime_RimeNative_nativeSelectCandidate(JNIEnv*, jclass, jl
 }
 
 JNIEXPORT jboolean JNICALL
-Java_com_xfgken_iceime_rime_RimeNative_nativeSelectCandidateOnPage(JNIEnv*, jclass, jlong session,
+Java_com_xfgken_icetype_rime_RimeNative_nativeSelectCandidateOnPage(JNIEnv*, jclass, jlong session,
                                                                   jint index) {
   if (!ensure_api()) return JNI_FALSE;
   if (!RIME_API_AVAILABLE(g_api, select_candidate_on_current_page)) return JNI_FALSE;
@@ -277,7 +277,7 @@ Java_com_xfgken_iceime_rime_RimeNative_nativeSelectCandidateOnPage(JNIEnv*, jcla
 }
 
 JNIEXPORT jboolean JNICALL
-Java_com_xfgken_iceime_rime_RimeNative_nativeDeleteCandidateOnPage(JNIEnv*, jclass, jlong session,
+Java_com_xfgken_icetype_rime_RimeNative_nativeDeleteCandidateOnPage(JNIEnv*, jclass, jlong session,
                                                                   jint index) {
   if (!ensure_api()) return JNI_FALSE;
   if (!RIME_API_AVAILABLE(g_api, delete_candidate_on_current_page)) return JNI_FALSE;
@@ -288,7 +288,7 @@ Java_com_xfgken_iceime_rime_RimeNative_nativeDeleteCandidateOnPage(JNIEnv*, jcla
 }
 
 JNIEXPORT jboolean JNICALL
-Java_com_xfgken_iceime_rime_RimeNative_nativeHighlightOnPage(JNIEnv*, jclass, jlong session,
+Java_com_xfgken_icetype_rime_RimeNative_nativeHighlightOnPage(JNIEnv*, jclass, jlong session,
                                                             jint index) {
   if (!ensure_api()) return JNI_FALSE;
   if (!RIME_API_AVAILABLE(g_api, highlight_candidate_on_current_page)) return JNI_FALSE;
@@ -299,7 +299,7 @@ Java_com_xfgken_iceime_rime_RimeNative_nativeHighlightOnPage(JNIEnv*, jclass, jl
 }
 
 JNIEXPORT jboolean JNICALL
-Java_com_xfgken_iceime_rime_RimeNative_nativeChangePage(JNIEnv*, jclass, jlong session,
+Java_com_xfgken_icetype_rime_RimeNative_nativeChangePage(JNIEnv*, jclass, jlong session,
                                                        jboolean backward) {
   if (!ensure_api()) return JNI_FALSE;
   if (!RIME_API_AVAILABLE(g_api, change_page)) return JNI_FALSE;
@@ -307,20 +307,20 @@ Java_com_xfgken_iceime_rime_RimeNative_nativeChangePage(JNIEnv*, jclass, jlong s
 }
 
 JNIEXPORT jboolean JNICALL
-Java_com_xfgken_iceime_rime_RimeNative_nativeCommitComposition(JNIEnv*, jclass, jlong session) {
+Java_com_xfgken_icetype_rime_RimeNative_nativeCommitComposition(JNIEnv*, jclass, jlong session) {
   if (!ensure_api()) return JNI_FALSE;
   return g_api->commit_composition(static_cast<RimeSessionId>(session)) ? JNI_TRUE : JNI_FALSE;
 }
 
 JNIEXPORT void JNICALL
-Java_com_xfgken_iceime_rime_RimeNative_nativeClearComposition(JNIEnv*, jclass, jlong session) {
+Java_com_xfgken_icetype_rime_RimeNative_nativeClearComposition(JNIEnv*, jclass, jlong session) {
   if (!ensure_api()) return;
   g_api->clear_composition(static_cast<RimeSessionId>(session));
 }
 
 /** 取提交串；没有提交内容时返回 null。 */
 JNIEXPORT jstring JNICALL
-Java_com_xfgken_iceime_rime_RimeNative_nativeGetCommit(JNIEnv* env, jclass, jlong session) {
+Java_com_xfgken_icetype_rime_RimeNative_nativeGetCommit(JNIEnv* env, jclass, jlong session) {
   if (!ensure_api()) return nullptr;
   RimeCommit commit = {0};
   RIME_STRUCT_INIT(RimeCommit, commit);
@@ -336,7 +336,7 @@ Java_com_xfgken_iceime_rime_RimeNative_nativeGetCommit(JNIEnv* env, jclass, jlon
  * 返回 JSON；失败时返回空串。
  */
 JNIEXPORT jstring JNICALL
-Java_com_xfgken_iceime_rime_RimeNative_nativeGetContext(JNIEnv* env, jclass, jlong session) {
+Java_com_xfgken_icetype_rime_RimeNative_nativeGetContext(JNIEnv* env, jclass, jlong session) {
   if (!ensure_api()) return to_jstring(env, "");
   RimeContext ctx = {0};
   RIME_STRUCT_INIT(RimeContext, ctx);
@@ -385,7 +385,7 @@ Java_com_xfgken_iceime_rime_RimeNative_nativeGetContext(JNIEnv* env, jclass, jlo
 }
 
 JNIEXPORT jstring JNICALL
-Java_com_xfgken_iceime_rime_RimeNative_nativeGetStatus(JNIEnv* env, jclass, jlong session) {
+Java_com_xfgken_icetype_rime_RimeNative_nativeGetStatus(JNIEnv* env, jclass, jlong session) {
   if (!ensure_api()) return to_jstring(env, "");
   RimeStatus status = {0};
   RIME_STRUCT_INIT(RimeStatus, status);
@@ -415,7 +415,7 @@ Java_com_xfgken_iceime_rime_RimeNative_nativeGetStatus(JNIEnv* env, jclass, jlon
 }
 
 JNIEXPORT void JNICALL
-Java_com_xfgken_iceime_rime_RimeNative_nativeSetOption(JNIEnv* env, jclass, jlong session,
+Java_com_xfgken_icetype_rime_RimeNative_nativeSetOption(JNIEnv* env, jclass, jlong session,
                                                        jstring name, jboolean value) {
   if (!ensure_api()) return;
   std::string n = jstr(env, name);
@@ -423,7 +423,7 @@ Java_com_xfgken_iceime_rime_RimeNative_nativeSetOption(JNIEnv* env, jclass, jlon
 }
 
 JNIEXPORT jboolean JNICALL
-Java_com_xfgken_iceime_rime_RimeNative_nativeGetOption(JNIEnv* env, jclass, jlong session,
+Java_com_xfgken_icetype_rime_RimeNative_nativeGetOption(JNIEnv* env, jclass, jlong session,
                                                        jstring name) {
   if (!ensure_api()) return JNI_FALSE;
   std::string n = jstr(env, name);
@@ -431,7 +431,7 @@ Java_com_xfgken_iceime_rime_RimeNative_nativeGetOption(JNIEnv* env, jclass, jlon
 }
 
 JNIEXPORT void JNICALL
-Java_com_xfgken_iceime_rime_RimeNative_nativeSetProperty(JNIEnv* env, jclass, jlong session,
+Java_com_xfgken_icetype_rime_RimeNative_nativeSetProperty(JNIEnv* env, jclass, jlong session,
                                                          jstring name, jstring value) {
   if (!ensure_api()) return;
   std::string n = jstr(env, name);
@@ -441,7 +441,7 @@ Java_com_xfgken_iceime_rime_RimeNative_nativeSetProperty(JNIEnv* env, jclass, jl
 }
 
 JNIEXPORT jstring JNICALL
-Java_com_xfgken_iceime_rime_RimeNative_nativeGetProperty(JNIEnv* env, jclass, jlong session,
+Java_com_xfgken_icetype_rime_RimeNative_nativeGetProperty(JNIEnv* env, jclass, jlong session,
                                                          jstring name) {
   if (!ensure_api()) return to_jstring(env, "");
   std::string n = jstr(env, name);
@@ -453,7 +453,7 @@ Java_com_xfgken_iceime_rime_RimeNative_nativeGetProperty(JNIEnv* env, jclass, jl
 }
 
 JNIEXPORT jstring JNICALL
-Java_com_xfgken_iceime_rime_RimeNative_nativeGetSchemaList(JNIEnv* env, jclass) {
+Java_com_xfgken_icetype_rime_RimeNative_nativeGetSchemaList(JNIEnv* env, jclass) {
   if (!ensure_api()) return to_jstring(env, "[]");
   RimeSchemaList list = {0, nullptr};
   if (!g_api->get_schema_list(&list)) return to_jstring(env, "[]");
@@ -473,7 +473,7 @@ Java_com_xfgken_iceime_rime_RimeNative_nativeGetSchemaList(JNIEnv* env, jclass) 
 }
 
 JNIEXPORT jboolean JNICALL
-Java_com_xfgken_iceime_rime_RimeNative_nativeSelectSchema(JNIEnv* env, jclass, jlong session,
+Java_com_xfgken_icetype_rime_RimeNative_nativeSelectSchema(JNIEnv* env, jclass, jlong session,
                                                           jstring schema_id) {
   if (!ensure_api()) return JNI_FALSE;
   std::string id = jstr(env, schema_id);
@@ -482,7 +482,7 @@ Java_com_xfgken_iceime_rime_RimeNative_nativeSelectSchema(JNIEnv* env, jclass, j
 }
 
 JNIEXPORT jstring JNICALL
-Java_com_xfgken_iceime_rime_RimeNative_nativeGetCurrentSchema(JNIEnv* env, jclass, jlong session) {
+Java_com_xfgken_icetype_rime_RimeNative_nativeGetCurrentSchema(JNIEnv* env, jclass, jlong session) {
   if (!ensure_api()) return to_jstring(env, "");
   char buf[256] = {0};
   if (g_api->get_current_schema(static_cast<RimeSessionId>(session), buf, sizeof(buf)))
@@ -492,19 +492,19 @@ Java_com_xfgken_iceime_rime_RimeNative_nativeGetCurrentSchema(JNIEnv* env, jclas
 
 /** 把用户数据立即同步回磁盘（用于强制保存用户词频）。 */
 JNIEXPORT jboolean JNICALL
-Java_com_xfgken_iceime_rime_RimeNative_nativeSyncUserData(JNIEnv*, jclass) {
+Java_com_xfgken_icetype_rime_RimeNative_nativeSyncUserData(JNIEnv*, jclass) {
   if (!ensure_api()) return JNI_FALSE;
   if (!RIME_API_AVAILABLE(g_api, sync_user_data)) return JNI_FALSE;
   return g_api->sync_user_data() ? JNI_TRUE : JNI_FALSE;
 }
 
 JNIEXPORT jstring JNICALL
-Java_com_xfgken_iceime_rime_RimeNative_nativeGetSharedDataDir(JNIEnv* env, jclass) {
+Java_com_xfgken_icetype_rime_RimeNative_nativeGetSharedDataDir(JNIEnv* env, jclass) {
   return to_jstring(env, g_shared_dir);
 }
 
 JNIEXPORT jstring JNICALL
-Java_com_xfgken_iceime_rime_RimeNative_nativeGetUserDataDir(JNIEnv* env, jclass) {
+Java_com_xfgken_icetype_rime_RimeNative_nativeGetUserDataDir(JNIEnv* env, jclass) {
   return to_jstring(env, g_user_dir);
 }
 

@@ -144,14 +144,14 @@ sync_user_data 返回: 成功
 `ime list -a` 输出（节选）：
 
 ```
-com.xfgken.iceime/.ime.IceInputMethodService:
-  mId=com.xfgken.iceime/.ime.IceInputMethodService
-  mSettingsActivityName=com.xfgken.iceime.MainActivity
+com.xfgken.icetype/.ime.IceInputMethodService:
+  mId=com.xfgken.icetype/.ime.IceInputMethodService
+  mSettingsActivityName=com.xfgken.icetype.MainActivity
   mSupportsSwitchingToNextInputMethod=true
   mShowInInputMethodPicker=true
   ServiceInfo:
-    name=com.xfgken.iceime.ime.IceInputMethodService
-    packageName=com.xfgken.iceime
+    name=com.xfgken.icetype.ime.IceInputMethodService
+    packageName=com.xfgken.icetype
     enabled=true exported=true
 ```
 
@@ -164,8 +164,8 @@ I IceType : [23:43:29.316] 初始化 应用启动，日志系统就绪
 I IceType : [23:43:29.316] 隐私 日志策略：本地存储，不含输入内容/密码/剪贴板正文，导出前需用户确认
 I IceType : [23:43:29.321] 初始化 设置已载入
 I IceType : [23:43:29.322] 初始化 IceType 应用进程启动（应用级初始化完成）
-I IceTypeRime: RimeSetup 完成 shared=/data/user/0/com.xfgken.iceime/files/rime_shared
-                            user=/data/user/0/com.xfgken.iceime/files/rime_user
+I IceTypeRime: RimeSetup 完成 shared=/data/user/0/com.xfgken.icetype/files/rime_shared
+                            user=/data/user/0/com.xfgken.icetype/files/rime_user
 I IceType : [23:43:29.369] Rime 引擎 librime 已初始化，版本 1.17.0
 I IceType : [23:43:57.509] 词库部署 Rime 通知 [deploy] start
 I IceType : [23:43:57.510] 词库部署 Rime 通知 [deploy] success
@@ -212,7 +212,7 @@ I IceType : [23:45:26.323] 用户界面 打开面板：CLIPBOARD
 **定位**：`logcat -b crash` 的 tombstone 明确指向
 
 ```
-#07 Java_com_xfgken_iceime_rime_RimeNative_nativeSetNotificationHandler+120
+#07 Java_com_xfgken_icetype_rime_RimeNative_nativeSetNotificationHandler+120
 #06 art::JNI<false>::GetStaticMethodID
 #05 art::FindMethodJNI → ClassLinker::EnsureInitialized → InitializeClass
 #04 .. #00 ClassLinker::InitializeClass → PrettyClass → PrettyDescriptor → Class::GetDescriptor → SIGSEGV (null + 0x28)

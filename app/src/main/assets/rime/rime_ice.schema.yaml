@@ -289,7 +289,12 @@ speller:
   initials: zyxwvutsrqponmlkjihgfedcbaZYXWVUTSRQPONMLKJIHGFEDCBA
   delimiter: " '"  # 第一位<空格>是拼音之间的分隔符；第二位<'>表示可以手动输入单引号来分割拼音。
   algebra:
-    ### 模糊音
+    ### 模糊音（IceType：强制开启，只保留平翘舌）
+    ### 用 fuzz 而不是 derive：引擎会给派生拼写打「模糊」标记并降权，
+    ### 本音字（增/赠/曾）与派生字（正/整/政）都有机会排在前面
+    - fuzz/^([zcs])h/$1/          # zh ch sh -> z c s
+    - fuzz/^([zcs])([^h])/$1h$2/  # z c s -> zh ch sh
+    ### 以下为上游内置的模糊音示例（IceType 不启用：鼻边音/唇齿/卷舌/前后鼻音）
     # 声母
     # - derive/^([zcs])h/$1/          # zh* ch* sh* 派生出 z* c* s*
     # - derive/^([zcs])([^h])/$1h$2/  # z* c* s*    派生出 zh* ch* sh*

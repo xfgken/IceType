@@ -37,7 +37,7 @@ import time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RIME = os.path.join(ROOT, 'app/src/main/assets/rime')
-INSTALLER = os.path.join(ROOT, 'app/src/main/java/com/xfgken/iceime/rime/RimeAssetInstaller.kt')
+INSTALLER = os.path.join(ROOT, 'app/src/main/java/com/xfgken/icetype/rime/RimeAssetInstaller.kt')
 STATE = os.path.join(ROOT, 'scripts/rime-upstream-state.json')
 
 # ============================ 资源清单（唯一事实源） ============================

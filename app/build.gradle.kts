@@ -6,17 +6,17 @@ plugins {
 }
 
 android {
-    namespace = "com.xfgken.iceime"
+    namespace = "com.xfgken.icetype"
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "com.xfgken.iceime"
+        applicationId = "com.xfgken.icetype"
         // minSdk 29：剪贴板面板、InputMethodService#getSystemService 等 API 需要 Android 10。
         minSdk = 29
         // targetSdk 37 = Android 17（按用户要求）。
         targetSdk = 37
-        versionCode = 3
-        versionName = "1.1.0"
+        versionCode = 8
+        versionName = "1.1.5"
         // 只保留中英文资源（AGP 9 起用 androidResources.localeFilters）
         androidResources {
             localeFilters += listOf("zh", "en")
