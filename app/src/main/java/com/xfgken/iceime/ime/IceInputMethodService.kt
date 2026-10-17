@@ -1098,6 +1098,8 @@ class IceInputMethodService : InputMethodService() {
                 AppLog.i(AppLog.Category.UI, "用户清空当前拼音/关闭候选")
                 updateCandidates()
             }
+            // 长按候选 → 冷词菜单（降频 / 隐藏 / 取消）
+            onLongPressCandidate = { index, centerX -> showColdWordMenu(index, centerX) }
             // 滑动诊断：确认横向滑动是否真的进来了、可滚动上限多大
             onSwipe = { dx, maxScroll ->
                 AppLog.i(
@@ -2944,6 +2946,101 @@ class IceInputMethodService : InputMethodService() {
         }
     }
 
+    // ———— 冷词菜单（长按候选）————
+    private var coldWordMenu: android.widget.PopupWindow? = null
+
+    private fun hideColdWordMenu() {
+        coldWordMenu?.let { runCatching { it.dismiss() } }
+        coldWordMenu = null
+    }
+
+    /**
+     * 长按候选弹出的小菜单：降频 / 隐藏 / 取消。
+     * 关键点：菜单自身重画一次（measure → showAsDropDown），不做延迟动画，
+     * 保证手指还按着时菜单就已经完整可见。
+     */
+    private fun showColdWordMenu(index: Int, centerX: Float) {
+        val bar = candidateBar ?: return
+        hideColdWordMenu()
+        val st = KeyboardTheme.candidateStyle(this)
+        val textColor = st.text
+        val density = resources.displayMetrics.density
+        val dpf = { v: Number -> v.toFloat() * density }
+        val lineColor = (textColor and 0x00FFFFFF) or 0x22000000
+
+        fun row(label: String, kind: Int): android.widget.TextView =
+            android.widget.TextView(this).apply {
+                text = label
+                setTextColor(textColor)
+                textSize = 15f
+                gravity = android.view.Gravity.CENTER_VERTICAL
+                setPadding(dpf(18).toInt(), dpf(12).toInt(), dpf(30).toInt(), dpf(12).toInt())
+                isClickable = true
+                background = android.graphics.drawable.RippleDrawable(
+                    android.content.res.ColorStateList.valueOf(
+                        (textColor and 0x00FFFFFF) or 0x33000000,
+                    ),
+                    null,
+                    null,
+                )
+                setOnClickListener {
+                    hideColdWordMenu()
+                    coldWordAction(index, kind)
+                }
+            }
+
+        val container = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            background = android.graphics.drawable.GradientDrawable().apply {
+                cornerRadius = dpf(14)
+                setColor(st.barBg)
+                setStroke(dpf(1).toInt().coerceAtLeast(1), lineColor)
+            }
+            setPadding(0, dpf(6).toInt(), 0, dpf(6).toInt())
+            addView(row("降频（排到后面）", COLD_REDUCE))
+            addView(row("隐藏（不再出现）", COLD_HIDE))
+            addView(row("取消", COLD_CANCEL))
+        }
+
+        val pw = android.widget.PopupWindow(
+            container,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            true,
+        )
+        pw.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT))
+        pw.isOutsideTouchable = true
+        pw.elevation = dpf(10)
+        container.measure(
+            View.MeasureSpec.makeMeasureSpec(bar.width, View.MeasureSpec.AT_MOST),
+            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
+        )
+        val mw = container.measuredWidth
+        val mh = container.measuredHeight
+        var x = (centerX - mw / 2f).toInt()
+        x = x.coerceIn(0, (bar.width - mw).coerceAtLeast(0))
+        coldWordMenu = pw
+        runCatching { pw.showAsDropDown(bar, x, -(mh + dp(6))) }
+        AppLog.i(AppLog.Category.UI, "长按候选 ${index + 1} → 冷词菜单（x=$x, 高=${mh}px）")
+    }
+
+    /** kind：0 降频（Control+j）、1 隐藏（Control+x）、2 取消。 */
+    private fun coldWordAction(index: Int, kind: Int) {
+        if (kind == COLD_CANCEL) return
+        val s = session
+        if (s == 0L) return
+        // 先让引擎高亮该候选，再发送组合键（processor 依据当前候选工作）
+        RimeEngine.highlightOnPage(s, index)
+        val key = if (kind == COLD_REDUCE) 'j'.code else 'x'.code
+        val consumed = RimeEngine.processKey(s, key, RimeEngine.Modifier.CONTROL)
+        val what = if (kind == COLD_REDUCE) "降频" else "隐藏"
+        AppLog.i(
+            AppLog.Category.INPUT,
+            "冷词操作：$what 第 ${index + 1} 个候选（consumed=$consumed）",
+        )
+        afterRimeInput()
+    }
+
     private fun handleSpace() {
         if (session != 0L) {
             val consumed = RimeEngine.processKey(session, RimeEngine.Key.SPACE, 0)
@@ -3208,6 +3305,10 @@ class IceInputMethodService : InputMethodService() {
 
         /** 快速双击大写键的判定窗口（毫秒）。 */
         private const val SHIFT_DOUBLE_TAP_MS = 320L
+        /** 长按候选弹出的冷词菜单：三种动作。 */
+        private const val COLD_REDUCE = 0
+        private const val COLD_HIDE = 1
+        private const val COLD_CANCEL = 2
 
         /** 彩蛋：长按最左侧「设置」图标多久算触发。 */
         private const val EGG_HOLD_MS = 2000L

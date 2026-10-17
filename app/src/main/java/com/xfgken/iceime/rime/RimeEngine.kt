@@ -33,6 +33,9 @@ object RimeEngine {
     object Modifier {
         const val SHIFT = 1 shl 0
         const val LOCK = 1 shl 1
+        /** Ctrl（kControlMask = 1 << 2）：冷词「降频 / 隐藏」使用。 */
+        const val CONTROL = 1 shl 2
+        const val ALT = 1 shl 3
     }
 
     enum class State { IDLE, INSTALLING, DEPLOYING, READY, FAILED }
@@ -152,6 +155,8 @@ object RimeEngine {
                 initialized = true
                 drainNotifications()
                 AppLog.i(AppLog.Category.ENGINE, "librime 已初始化，版本 $engineVersion")
+                // 部署前先落盘用户补丁（模糊音 / 学习开关等），保证首次启动即生效
+                writeUserPatch(context)
             }
 
             // 2) 部署（首次或需要时）。放在锁外，避免长任务阻塞其它调用。
@@ -401,6 +406,16 @@ object RimeEngine {
      * 写入后立即执行一次部署，使补丁生效。
      */
     suspend fun applyUserPatches(context: Context): Boolean = withContext(Dispatchers.IO) {
+        if (!writeUserPatch(context)) return@withContext false
+        if (!initialized && !ensureReady(context)) return@withContext false
+        deployBlocking(context, full = true)
+    }
+
+    /**
+     * 只写补丁文件（不部署），供初始化阶段在部署之前调用，
+     * 保证「首次启动」时就带上当前的模糊音等设置，而不是等用户去动一次开关。
+     */
+    fun writeUserPatch(context: Context): Boolean {
         val settings = IcePrefs.current()
         val lines = mutableListOf<String>()
         // 候选词每页 6 个（与键盘候选栏一致）
@@ -414,17 +429,51 @@ object RimeEngine {
             // 主翻译器默认开启用户词典；这里关闭它以实现“停止词频学习”
             lines += "  translator/enable_user_dict: false"
         }
+        // —— 模糊音：生成 speller/algebra 的 derive 规则（只作用于全拼）——
+        if (settings.fuzzyEnabled) {
+            val rules = mutableListOf<String>()
+            if (settings.fuzzyZcs) {
+                rules += "derive/^([zcs])h/$1/"          // zh ch sh → z c s
+                rules += "derive/^([zcs])([^h])/$1h$2/"  // z c s → zh ch sh
+            }
+            if (settings.fuzzyNl) {
+                rules += "derive/^n/l/"
+                rules += "derive/^l/n/"
+            }
+            if (settings.fuzzyFh) {
+                rules += "derive/^f/h/"
+                rules += "derive/^h/f/"
+            }
+            if (settings.fuzzyLr) {
+                rules += "derive/^l/r/"
+                rules += "derive/^r/l/"
+            }
+            if (settings.fuzzyAnAng) {
+                rules += "derive/ang$/an/"
+                rules += "derive/an$/ang/"
+                rules += "derive/eng$/en/"
+                rules += "derive/en$/eng/"
+            }
+            if (settings.fuzzyInIng) {
+                rules += "derive/in$/ing/"
+                rules += "derive/ing$/in/"
+            }
+            rules.forEachIndexed { i, rule ->
+                // @before 保证插在 algebra 列表最前面，优先级高于上游原有规则
+                lines += "  speller/algebra/@before $i: $rule"
+            }
+            AppLog.i(AppLog.Category.ENGINE, "模糊音规则已写入补丁：${rules.size} 条")
+        }
         val file = File(RimeAssetInstaller.userDir(context), SCHEMA_PATCH_FILE)
-        try {
+        return try {
             file.parentFile?.mkdirs()
             file.writeText("patch:\n" + lines.joinToString("\n") + "\n")
             AppLog.i(AppLog.Category.ENGINE, "已写入用户补丁，共 ${lines.size} 项")
+            true
         } catch (t: Throwable) {
             AppLog.throwable(AppLog.Category.ENGINE, "写入用户补丁失败", t)
-            return@withContext false
+            false
         }
-        if (!initialized && !ensureReady(context)) return@withContext false
-        deployBlocking(context, full = true)
     }
 
 
@@ -433,6 +482,9 @@ object RimeEngine {
         IcePrefs.edit { it.putBoolean("learningEnabled", enabled) }
         return applyUserPatches(context)
     }
+
+    /** 模糊音任一开关变化后：重写补丁并全量部署。 */
+    suspend fun applyFuzzySettings(context: Context): Boolean = applyUserPatches(context)
 
 
 

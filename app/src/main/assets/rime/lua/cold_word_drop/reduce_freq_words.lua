@@ -1,5 +1,4 @@
+-- 降频词表（Icetype 初始为空；由长按候选「降频」写入）
 local reduce_freq_words =
-{ 	["示~例~"] = { "shili", },
-	["颜射"] = { "yanshe", },
-}
+{}
 return reduce_freq_words

@@ -26,6 +26,11 @@ rm -rf "$WS/app/src"
   --exclude='./.git' \
   .) | (cd "$WS" && tar xf - --no-same-permissions)
 
+echo "==> 资源闸门校验（sync-rime-assets.py --check）"
+if command -v python3 >/dev/null 2>&1; then
+  python3 "$HERE/sync-rime-assets.py" --check || { echo "!! 资源校验未通过，已中止构建"; exit 1; }
+fi
+
 echo "==> 构建 release APK"
 "$GRADLE" -p "$WS" :app:assembleRelease
 

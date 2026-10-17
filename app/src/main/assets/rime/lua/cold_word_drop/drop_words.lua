@@ -1,3 +1,4 @@
+-- 强删词表（Icetype 初始为空；由长按候选「隐藏」/ 快捷键写入）
 local drop_words =
-{ "示~例~", "肏女人", }
+{}
 return drop_words

@@ -5,11 +5,14 @@
 name: rime_ice
 version: "2026-01-26"
 import_tables:
-  - cn_dicts/8105     # 字表
-  - cn_dicts/41448  # 大字表（已启用）
-  - cn_dicts/base     # 基础词库
-
-  - cn_dicts/others   # 一些杂项
+  # 顺序即权重：前面的词典优先占位
+  - cn_dicts/8105       # 字表
+  - cn_dicts/41448      # 大字表
+  - cn_dicts/base       # 基础词库
+  - cn_dicts/ext        # 扩展词库（39.3 万条）
+  - cn_dicts/tencent    # 腾讯词向量词库（98.2 万条）
+  - cn_dicts/others     # 其他杂项
+  # 提示：有重复词条时，越靠上的词典权重越高
 
   # 建议把扩展词库放到下面，有重复词条时，最上面的权重生效
   # - mydict1           # 挂载配置目录下的 mydict1.dict.yaml 词库文件

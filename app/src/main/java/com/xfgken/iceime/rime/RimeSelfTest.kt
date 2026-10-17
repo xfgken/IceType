@@ -107,6 +107,22 @@ object RimeSelfTest {
             val wenCandidates = RimeEngine.context(session)?.candidates?.map { it.text }
                 ?: emptyList()
 
+            // 模糊音探针：zongguo（zh=z 生效时首屏应有「中国」）、ni（n=l 生效时应出现「里 / 李」）
+            RimeEngine.clearComposition(session)
+            for (ch in "zongguo") {
+                RimeEngine.processKey(session, ch.code)
+            }
+            val zongguoCandidates = RimeEngine.context(session)?.candidates?.map { it.text }
+                ?: emptyList()
+            val fuzzyHasZh = zongguoCandidates.take(20).any { it == "中国" }
+            RimeEngine.clearComposition(session)
+            for (ch in "ni") {
+                RimeEngine.processKey(session, ch.code)
+            }
+            val niCandidates = RimeEngine.context(session)?.candidates?.map { it.text }
+                ?: emptyList()
+            val fuzzyHasNl = niCandidates.take(20).any { it == "里" || it == "李" }
+
             val schemaId = RimeEngine.currentSchema(session)
             val ok = candidates.isNotEmpty() && committed.isNotEmpty()
             val result = Result(
@@ -123,12 +139,15 @@ object RimeSelfTest {
                 "引擎自检" + (if (ok) "通过" else "未通过") +
                     "：方案=$schemaId，nihao→${candidates.take(3).joinToString("/")}，上屏=\"$committed\"" +
                     "，hel→${englishCandidates.take(3).joinToString("/")}" +
-                    "，lan→${lanCandidates.joinToString("/")}（含「栏」=$lanHasBar）" +
+                    "，lan→${lanCandidates.joinToString("/")}（含「栏」=$lanHasBar；开启模糊音时可能被挤出首屏）" +
                     "，goo→${gooCandidates.joinToString("/")}" +
                     "，goo第2页→${gooPage2.joinToString("/")}（有英文单词=$gooHasEnglish）" +
                     "，good→${goodCandidates.joinToString("/")}（含good=$goodHasEnglish）" +
                     "，hel→${helCandidates.take(6).joinToString("/")}" +
-                    "，wen→${wenCandidates.take(8).joinToString("/")}",
+                    "，wen→${wenCandidates.take(8).joinToString("/")}" +
+                    "｜模糊音（总开关=${com.xfgken.iceime.core.IcePrefs.current().fuzzyEnabled}）" +
+                    "：zongguo→${zongguoCandidates.take(6).joinToString("/")}（含中国=$fuzzyHasZh）" +
+                    "，ni→${niCandidates.take(8).joinToString("/")}（含里/李=$fuzzyHasNl）",
             )
             return result
         } catch (t: Throwable) {

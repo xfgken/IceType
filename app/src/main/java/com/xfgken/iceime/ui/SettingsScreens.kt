@@ -229,6 +229,63 @@ Item {
             ) { IcePrefs.setBlindTyping(it) }
         }
     }
+    // ———— 模糊音：总开关 + 6 组分组开关（只作用于全拼）————
+    SectionCard("模糊音") {
+        val scope = rememberCoroutineScope()
+        fun applyFuzzy() {
+            scope.launch {
+                RimeEngine.applyFuzzySettings(context)
+                AppLog.i(AppLog.Category.ENGINE, "模糊音设置已应用（重新部署完成）")
+            }
+        }
+        Item {
+            SwitchRow(
+                title = "启用模糊音",
+                desc = "关闭后严格区分 zh/z、n/l、an/ang 等",
+                checked = settings.fuzzyEnabled,
+            ) { v ->
+                IcePrefs.setFuzzyEnabled(v)
+                applyFuzzy()
+            }
+        }
+        Item {
+            SwitchRow(
+                title = "平翘舌  zh=z  ch=c  sh=s",
+                checked = settings.fuzzyZcs,
+            ) { v -> if (settings.fuzzyEnabled) { IcePrefs.setFuzzyGroup("fuzzyZcs", v); applyFuzzy() } }
+        }
+        Item {
+            SwitchRow(
+                title = "鼻边音  n=l",
+                checked = settings.fuzzyNl,
+            ) { v -> if (settings.fuzzyEnabled) { IcePrefs.setFuzzyGroup("fuzzyNl", v); applyFuzzy() } }
+        }
+        Item {
+            SwitchRow(
+                title = "唇齿音  f=h",
+                checked = settings.fuzzyFh,
+            ) { v -> if (settings.fuzzyEnabled) { IcePrefs.setFuzzyGroup("fuzzyFh", v); applyFuzzy() } }
+        }
+        Item {
+            SwitchRow(
+                title = "卷舌音  l=r",
+                desc = "与「鼻边音」同时开启会形成 n≈l≈r，重码明显变多",
+                checked = settings.fuzzyLr,
+            ) { v -> if (settings.fuzzyEnabled) { IcePrefs.setFuzzyGroup("fuzzyLr", v); applyFuzzy() } }
+        }
+        Item {
+            SwitchRow(
+                title = "前鼻音  an=ang  en=eng",
+                checked = settings.fuzzyAnAng,
+            ) { v -> if (settings.fuzzyEnabled) { IcePrefs.setFuzzyGroup("fuzzyAnAng", v); applyFuzzy() } }
+        }
+        Item {
+            SwitchRow(
+                title = "后鼻音  in=ing",
+                checked = settings.fuzzyInIng,
+            ) { v -> if (settings.fuzzyEnabled) { IcePrefs.setFuzzyGroup("fuzzyInIng", v); applyFuzzy() } }
+        }
+    }
     }
 
     // 游戏键盘：开关 + 悬浮键盘大小调节，放在同一张卡片里

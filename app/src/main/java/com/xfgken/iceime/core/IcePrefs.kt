@@ -77,6 +77,14 @@ object IcePrefs {
         val schemaId: String = "rime_ice",
         // —— 隐私与学习 ——
         val learningEnabled: Boolean = true,
+        // —— 模糊音（仅全拼；通过 rime_ice.custom.yaml 生成 derive 规则）——
+        val fuzzyEnabled: Boolean = true,
+        val fuzzyZcs: Boolean = true,   // 平翘舌 zh=z ch=c sh=s
+        val fuzzyNl: Boolean = true,    // 鼻边音 n=l
+        val fuzzyFh: Boolean = false,   // 唇齿音 f=h
+        val fuzzyLr: Boolean = false,   // 卷舌音 l=r
+        val fuzzyAnAng: Boolean = false,// 前鼻音 an=ang en=eng
+        val fuzzyInIng: Boolean = false,// 后鼻音 in=ing
         // —— 部署状态 ——
         val deployedAssetVersion: Int = 0,
         val lastDeployOk: Boolean = false,
@@ -155,6 +163,13 @@ object IcePrefs {
             gameFloatXFrac = sp.getFloat("gameFloatXFrac4", d.gameFloatXFrac),
             gameFloatYFrac = sp.getFloat("gameFloatYFrac5", d.gameFloatYFrac),
             learningEnabled = sp.getBoolean("learningEnabled", d.learningEnabled),
+        fuzzyEnabled = sp.getBoolean("fuzzyEnabled", d.fuzzyEnabled),
+        fuzzyZcs = sp.getBoolean("fuzzyZcs", d.fuzzyZcs),
+        fuzzyNl = sp.getBoolean("fuzzyNl", d.fuzzyNl),
+        fuzzyFh = sp.getBoolean("fuzzyFh", d.fuzzyFh),
+        fuzzyLr = sp.getBoolean("fuzzyLr", d.fuzzyLr),
+        fuzzyAnAng = sp.getBoolean("fuzzyAnAng", d.fuzzyAnAng),
+        fuzzyInIng = sp.getBoolean("fuzzyInIng", d.fuzzyInIng),
             deployedAssetVersion = sp.getInt("deployedAssetVersion", 0),
             lastDeployOk = sp.getBoolean("lastDeployOk", false),
             lastDeployMessage = sp.getString("lastDeployMessage", "") ?: "",
@@ -235,5 +250,12 @@ object IcePrefs {
         it.putBoolean("lastDeployOk", ok)
         it.putString("lastDeployMessage", message)
     }
+
+    // —— 模糊音 ——
+    /** 模糊音总开关。 */
+    fun setFuzzyEnabled(enabled: Boolean) = edit { it.putBoolean("fuzzyEnabled", enabled) }
+
+    /** 模糊音分组开关；key 取 fuzzyZcs / fuzzyNl / fuzzyFh / fuzzyLr / fuzzyAnAng / fuzzyInIng。 */
+    fun setFuzzyGroup(key: String, enabled: Boolean) = edit { it.putBoolean(key, enabled) }
 
 }

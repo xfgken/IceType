@@ -94,6 +94,9 @@ class CandidateBarView @JvmOverloads constructor(
     /** 候选态下点击右侧 ✕：清空当前正在输入的拼音。 */
     var onClear: (() -> Unit)? = null
 
+    /** 长按候选：回调（候选序号、该候选在控件内的中心 X）。 */
+    var onLongPressCandidate: ((Int, Float) -> Unit)? = null
+
     /** 滚动回调（仅用于诊断日志：确认横向滑动手势是否真的进来、可滚动范围有多大）。 */
     var onSwipe: ((dx: Float, maxScroll: Float) -> Unit)? = null
 
@@ -102,6 +105,8 @@ class CandidateBarView @JvmOverloads constructor(
     private var downY = 0f
     private var swiped = false
     private var pressedCandidate = -1
+    private var longPressRunnable: Runnable? = null
+    private var longPressFired = false
 
     /**
      * 横向滚动偏移（像素）。
@@ -173,6 +178,17 @@ private var scrollOffset = 0f
         if (kotlin.math.abs(style.sidePadPx - px) < 0.5f) return
         style = style.copy(sidePadPx = px)
         invalidate()
+    }
+
+    /** 取某个候选在控件内的中心 X（长按菜单定位用）；未命中返回 -1。 */
+    fun candidateCenterX(index: Int): Float {
+        val r = candidateRects.getOrNull(index) ?: return -1f
+        return if (r.width() > 0f) r.centerX() else -1f
+    }
+
+    private fun cancelCandidateLongPress() {
+        longPressRunnable?.let { removeCallbacks(it) }
+        longPressRunnable = null
     }
 
     fun update(
@@ -407,6 +423,18 @@ private var scrollOffset = 0f
                 } else {
                     candidateRects.indexOfFirst { it.contains(event.x, event.y) }
                 }
+                // 长按候选 → 冷词菜单（移动超过阈值即取消）
+                longPressFired = false
+                cancelCandidateLongPress()
+                if (pressedCandidate >= 0 && !prediction) {
+                    val idx = pressedCandidate
+                    val r = Runnable {
+                        longPressFired = true
+                        onLongPressCandidate?.invoke(idx, candidateCenterX(idx))
+                    }
+                    longPressRunnable = r
+                    postDelayed(r, LONG_PRESS_MS)
+                }
                 return true
             }
 
@@ -415,6 +443,7 @@ private var scrollOffset = 0f
                 val dy = event.y - downY
                 velocityTracker?.addMovement(event)
                 // 超过触摸阈值且以横向为主 → 进入滚动状态（此后不再触发点击）
+                if (abs(dx) > dpF(4) || abs(dy) > dpF(4)) cancelCandidateLongPress()
                 if (!swiped && abs(dx) > dpF(4) && abs(dx) > abs(dy)) {
                     swiped = true
                     pressedCandidate = -1
@@ -430,6 +459,15 @@ private var scrollOffset = 0f
             }
 
             MotionEvent.ACTION_UP -> {
+                cancelCandidateLongPress()
+                if (longPressFired) {
+                    // 长按已弹出菜单：这一下不算点击候选
+                    longPressFired = false
+                    velocityTracker?.recycle()
+                    velocityTracker = null
+                    pressedCandidate = -1
+                    return true
+                }
                 if (!swiped) {
                     when {
                         // 联想态是「关闭联想」，候选态是「清空当前拼音」
@@ -457,6 +495,8 @@ private var scrollOffset = 0f
             }
 
             MotionEvent.ACTION_CANCEL -> {
+                cancelCandidateLongPress()
+                longPressFired = false
                 pressedCandidate = -1
                 swiped = false
                 stopFling()
@@ -470,5 +510,7 @@ private var scrollOffset = 0f
 
     companion object {
         private const val PRESS_DISMISS = -2
+        /** 长按触发时长（毫秒）。 */
+        private const val LONG_PRESS_MS = 400L
     }
 }

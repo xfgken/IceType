@@ -13,20 +13,38 @@
 
 | 方式 | 说明 |
 |---|---|
-| Releases 页 | 直接下载 `IceType-v1.0.0.apk` 安装 |
+| Releases 页 | 直接下载 `IceType-v1.1.0.apk` 安装（推荐） |
 | 自行构建 | 见下面「从源码构建」 |
 
 安装后在系统的「语言和输入法」里启用「冰霜输入法」并切换为默认输入法即可。
 
-- 首次打开会自动把 20MB 的拼音词典释放到应用私有目录并部署引擎（有进度提示，稍等片刻）
+- 首次打开会自动释放约 45MB 的词典资源到应用私有目录并部署引擎（约 20 秒，之后秒开）
 - 重装 APK 后系统有时会取消启用输入法，重新启用一次就行
 
 ---
 
 ## 功能
 
+### 词库规模（v1.1.0 起）
+| 词典 | 词条数 |
+|---|---|
+| `base` 基础词库 | 543,118 |
+| `81448` 大字表 | 46,019 |
+| `8105` 字表 | 8,757 |
+| `ext` 扩展词库（专业词、术语、人名地名） | 339,186 |
+| `tencent` 腾讯词向量词库（网络热词） | 981,545 |
+| `others` 杂项 | 633 |
+| **合计** | **1,919,258 条**（去重前） |
+
+编译产物 `rime_ice.table.bin` 约 59MB，首次部署约 20 秒，常驻内存增加约 60–70MB。
+
 ### 输入
 - 中文拼音：全拼、整句、简拼、混拼，候选分页与用户词频学习
+- **模糊音**（设置 → 键盘与布局 → 模糊音）：总开关 + 6 组分组开关
+  - 平翘舌 `zh=z ch=c sh=s`（默认开）、鼻边音 `n=l`（默认开）
+  - 唇齿音 `f=h`、卷舌音 `l=r`、前鼻音 `an=ang en=eng`、后鼻音 `in=ing`
+  - 只作用于全拼；开关变化即时生成 `rime_ice.custom.yaml` 的 `derive` 规则并重新部署
+- **冷词隐藏**（长按候选）：降频（排到后面）/ 隐藏（不再出现）/ 取消，写入用户目录，升级不丢
 - 英文：`melt_eng` 词表 + 内置英文词库前缀补全
 - 数字、符号键盘；符号页底部是**可横向拖动**的分类条（带惯性）
 - 长按「，」按钮向上拉长，松手得到「。」（英文为「.」）
@@ -65,7 +83,7 @@ bash scripts/build-apk.sh
 只想改 Kotlin / 资源时不用动原生库，`app/src/main/jniLibs/arm64-v8a/` 里已经放好编译好的 `librime.so`、`libiceime_rime.so` 与 `libc++_shared.so`。
 
 本仓库直接包含：
-- `app/src/main/assets/rime/`：雾凇拼音完整配置与词典（`base.dict.yaml` 16MB）
+- `app/src/main/assets/rime/`：雾凇拼音完整配置与词典（6 个中文词典，合计约 1.9M 词条，压缩前 45MB）
 - `app/src/main/cpp/icetype_rime.cpp`：自研 JNI 层
 - `keystore/icetype.jks`：release 签名（口令见 `app/build.gradle.kts`）
 
@@ -89,12 +107,41 @@ app/src/main/java/com/xfgken/iceime/
 
 ---
 
+## 词库与上游同步
+
+上游 [rime-ice](https://github.com/iDvel/rime-ice) 更新时，用仓库里的同步脚本一条命令完成：
+
+```bash
+# 只看计划（不动文件）
+python3 scripts/sync-rime-assets.py --from /path/to/rime-ice/full --dry-run
+
+# 执行：自动快照 → 拷文件 → 重新应用定制补丁 → ASSET_VERSION +1 → 校验
+python3 scripts/sync-rime-assets.py --from /path/to/rime-ice/full --apply
+
+# 只做校验（build-apk.sh 会自动调用它，不通过则拒绝构建）
+python3 scripts/sync-rime-assets.py --check
+```
+
+脚本内置四类规则（清单就是脚本顶部的常量）：
+
+| 类别 | 处理方式 |
+|---|---|
+| `PLAIN_COPY` | 纯替换（我们没改过的词典、opencc、lua） |
+| `PATCHED` | 覆盖后重打补丁（`default.yaml` / `rime_ice.schema.yaml` / `rime_ice.dict.yaml` / `en_ext.dict.yaml`） |
+| `NEVER_COPY` | 永不进包（t9、双拼、部件拆字、桌面皮肤、build 缓存、冷词词表） |
+| 未知新文件 | 默认不拷，只在报告里列出，等人工判断 |
+
+10 项闸门校验：`page_size=20`、方案只剩 `rime_ice`、`import_tables` 六项齐全、无 radical 残留、冷词组件已挂载、引用完整性、英文专名齐全、冷词词表为空、大词库存在、**资源变了但 `ASSET_VERSION` 没变**（这是最容易漏的坑）。
+
+---
+
 ## 技术要点
 
 - **自绘键盘**：`KeyboardView` 自己算命中、绘制与多点触控；滑动不当作打字，抬手仍停在原键才上屏。
 - **JNI 用轮询而非回调**：早期用 `GetStaticMethodID` 注册回调，在真机上触发过 ART `ClassLinker::InitializeClass → PrettyDescriptor` 空指针崩溃（tombstone 确认），现在改成 native 侧入队、Kotlin 侧 `nativePollNotification()` 轮询。
 - **R8 保留规则**：`RimeNative` 与 `IceInputMethodService` 必须 `-keep`，否则混淆会破坏 JNI 绑定与系统对输入法服务的实例化。
 - **主题推导**：给定一个色相种子，`KeyboardTheme.schemeFromSeed()` 生成整套配色，保证深/浅两套都有足够对比度。
+- **冷词隐藏走 rime 的 lua 组件**：`lua_processor@*cold_word_drop.processor` + `lua_filter@*cold_word_drop.filter`，长按候选时发送 `Control+j`（降频）/ `Control+x`（隐藏）；三张词表在首次安装时复制到 `rime_user/lua/cold_word_drop/`，保证可写、升级不丢。
 - **librime 全局串行锁**：rime 的 Service 不是线程安全的，并发进入会破坏 `lua_State`（`lua_load` 空指针 / longjmp 导致 SIGILL）。所以所有 native 调用都收在 `RimeNative.locked.*` 里，由一把锁串起来；内置压力自测（`--ei stress 400`）连续 1.3 万次引擎调用 0 崩溃。
 
 ---

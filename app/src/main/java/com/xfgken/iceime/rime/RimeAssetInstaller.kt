@@ -15,7 +15,7 @@ import java.io.File
 object RimeAssetInstaller {
 
     /** 资源版本号：改动 assets/rime 内容时必须递增，用于触发一次安全重装（不递增的话改动不会生效）。 */
-    const val ASSET_VERSION = 6
+    const val ASSET_VERSION = 7
 
     private const val ASSET_ROOT = "rime"
     private const val VERSION_MARKER = ".icetype_asset_version"
@@ -87,12 +87,32 @@ object RimeAssetInstaller {
             }
             copyRecursive(am, ASSET_ROOT, shared, onProgress, IntArray(1), total)
             File(shared, VERSION_MARKER).writeText(ASSET_VERSION.toString())
+            seedUserColdWordTables(context)
             AppLog.i(AppLog.Category.DEPLOY, "内置资源释放完成，共 $total 个文件")
             true
         } catch (t: Throwable) {
             AppLog.throwable(AppLog.Category.DEPLOY, "释放内置 Rime 资源失败", t)
             false
         }
+    }
+
+    /**
+     * 冷词词表（drop / hide / reduce_freq）必须**可写**，而 rime_shared 每次资源升级都会整体替换。
+     * 因此把三张空词表复制到 rime_user/lua/cold_word_drop/（用户目录优先加载）：
+     * 之后用户的长按操作写入这里，升级 APK 不会覆盖，也不会丢。
+     */
+    private fun seedUserColdWordTables(context: Context) {
+        val src = File(File(sharedDir(context), "lua"), "cold_word_drop")
+        val dst = File(File(userDir(context), "lua"), "cold_word_drop")
+        if (!src.isDirectory) return
+        dst.mkdirs()
+        for (name in listOf("drop_words.lua", "hide_words.lua", "reduce_freq_words.lua")) {
+            val s = File(src, name)
+            val d = File(dst, name)
+            if (!s.isFile || d.exists()) continue // 已存在则尊重用户数据，绝不覆盖
+            runCatching { d.writeText(s.readText()) }
+        }
+        AppLog.i(AppLog.Category.DEPLOY, "冷词词表已就位：${dst.absolutePath}")
     }
 
     /** 删除共享资源（重置初始化的一部分）。 */

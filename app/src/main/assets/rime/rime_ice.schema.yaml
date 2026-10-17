@@ -41,6 +41,7 @@ switches:
 engine:
   processors:
     - lua_processor@*select_character  # 以词定字
+    - lua_processor@*cold_word_drop.processor  # 冷词隐藏（长按候选 → 降频/隐藏）
     - ascii_composer
     - recognizer
     - key_binder
@@ -75,6 +76,7 @@ engine:
     - lua_filter@*pin_cand_filter                   # 置顶候选项（顺序要求：置顶候选项 > Emoji > 简繁切换）
     - lua_filter@*long_word_filter                  # 长词优先（顺序要求：长词优先 > Emoji）
     - lua_filter@*reduce_english_filter             # 降低部分英语单词在候选项的位置
+    - lua_filter@*cold_word_drop.filter             # 冷词隐藏（顺序要求：置于置顶/长词之后、Emoji 之前）
     - simplifier@emoji                              # Emoji
     - simplifier@traditionalize                     # 简繁切换
     - uniquifier                                    # 去重
@@ -258,6 +260,10 @@ recognizer:
 key_binder:
   import_preset: default  # 从 default.yaml 继承通用的
   search: "`"             # 辅码引导符，要添加到 speller/alphabet
+  # 冷词快捷操作键位（由 lua/cold_word_drop 读取）
+  reduce_freq_cand: "Control+j"   # 降频：把候选排到第 4 位之后
+  drop_cand: "Control+d"          # 强删：无视编码彻底删除
+  hide_cand: "Control+x"          # 隐藏：该编码下不再出现
   # bindings:             # 也可以再增加方案专有的快捷键
 
 
