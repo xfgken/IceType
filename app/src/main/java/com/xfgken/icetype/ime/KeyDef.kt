@@ -61,7 +61,7 @@ sealed interface KeyAction {
  */
 data class KeyDef(
     val label: String = "",
-    @DrawableRes val icon: Int? = null,
+    @get:DrawableRes val icon: Int? = null,
     val action: KeyAction = KeyAction.None,
     val weight: Float = 1f,
     val isFunction: Boolean = false,
