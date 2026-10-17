@@ -115,7 +115,7 @@ object RimeEngine {
                     return@synchronized false
                 }
 
-                engineVersion = runCatching { RimeNative.nativeVersion() }.getOrDefault("(未知)")
+                engineVersion = runCatching { RimeNative.locked.nativeVersion() }.getOrDefault("(未知)")
 
                 // 1) 资源释放（仅在版本不一致时）
                 if (!RimeAssetInstaller.isInstalled(context)) {
@@ -138,7 +138,7 @@ object RimeEngine {
                 val user = RimeAssetInstaller.userDir(context).apply { mkdirs() }
                 val logDir = File(context.cacheDir, "rime-log").apply { mkdirs() }
 
-                if (!RimeNative.nativeSetup(
+                if (!RimeNative.locked.nativeSetup(
                         shared.absolutePath,
                         user.absolutePath,
                         logDir.absolutePath,
@@ -148,7 +148,7 @@ object RimeEngine {
                     _deploy.value = DeployState(State.FAILED, "Rime 初始化参数设置失败（librime 不可用）", 0, engineVersion)
                     return@synchronized false
                 }
-                RimeNative.nativeInitialize(ENGINE_DISTRIBUTION_VERSION)
+                RimeNative.locked.nativeInitialize(ENGINE_DISTRIBUTION_VERSION)
                 initialized = true
                 drainNotifications()
                 AppLog.i(AppLog.Category.ENGINE, "librime 已初始化，版本 $engineVersion")
@@ -181,14 +181,14 @@ object RimeEngine {
         )
         val started = System.currentTimeMillis()
         return try {
-            val ok = RimeNative.nativeStartMaintenance(full)
+            val ok = RimeNative.locked.nativeStartMaintenance(full)
             drainNotifications()
             // start_maintenance 返回 false 表示“无需维护/已有维护线程”，并非失败；
             // 完整部署（full=true）时才是异常情况。
             if (!ok && full) {
                 AppLog.w(AppLog.Category.DEPLOY, "请求完整部署但 start_maintenance 返回 false")
             }
-            RimeNative.nativeJoinMaintenance()
+            RimeNative.locked.nativeJoinMaintenance()
             drainNotifications()
             val cost = System.currentTimeMillis() - started
             val message = "词库部署完成，用时 ${cost / 1000.0} 秒" +
@@ -226,7 +226,7 @@ object RimeEngine {
     private fun drainNotifications() {
         var guard = 0
         while (guard++ < 64) {
-            val packed = runCatching { RimeNative.nativePollNotification() }.getOrNull() ?: return
+            val packed = runCatching { RimeNative.locked.nativePollNotification() }.getOrNull() ?: return
             val separator = packed.indexOf('\u0001')
             val type = if (separator >= 0) packed.substring(0, separator) else packed
             val value = if (separator >= 0) packed.substring(separator + 1) else ""
@@ -249,7 +249,7 @@ object RimeEngine {
         withContext(Dispatchers.IO) {
             synchronized(lock) {
                 if (initialized) {
-                    runCatching { RimeNative.nativeFinalize() }
+                    runCatching { RimeNative.locked.nativeFinalize() }
                     initialized = false
                 }
                 RimeAssetInstaller.wipeShared(context)
@@ -261,7 +261,7 @@ object RimeEngine {
 
     private fun refreshSchemas() {
         cachedSchemas = runCatching {
-            JsonMini.parseArray(RimeNative.nativeGetSchemaList()).map {
+            JsonMini.parseArray(RimeNative.locked.nativeGetSchemaList()).map {
                 Schema(it.str("id"), it.str("name"))
             }
         }.getOrDefault(emptyList())
@@ -280,19 +280,19 @@ object RimeEngine {
 
     fun createSession(): Long {
         if (!initialized) return 0L
-        val id = runCatching { RimeNative.nativeCreateSession() }.getOrDefault(0L)
+        val id = runCatching { RimeNative.locked.nativeCreateSession() }.getOrDefault(0L)
         if (id == 0L) AppLog.w(AppLog.Category.ENGINE, "创建 Rime 会话失败")
         return id
     }
 
     fun destroySession(session: Long) {
         if (session == 0L) return
-        runCatching { RimeNative.nativeDestroySession(session) }
+        runCatching { RimeNative.locked.nativeDestroySession(session) }
     }
 
     fun cleanupStaleSessions() {
         if (!initialized) return
-        runCatching { RimeNative.nativeCleanupStaleSessions() }
+        runCatching { RimeNative.locked.nativeCleanupStaleSessions() }
     }
 
     /**
@@ -301,45 +301,45 @@ object RimeEngine {
      */
     fun processKey(session: Long, keycode: Int, modifier: Int = 0): Boolean {
         if (!initialized || session == 0L) return false
-        return runCatching { RimeNative.nativeProcessKey(session, keycode, modifier) }
+        return runCatching { RimeNative.locked.nativeProcessKey(session, keycode, modifier) }
             .getOrDefault(false)
     }
 
     fun selectCandidate(session: Long, index: Int): Boolean {
         if (!initialized || session == 0L) return false
-        return runCatching { RimeNative.nativeSelectCandidateOnPage(session, index) }
+        return runCatching { RimeNative.locked.nativeSelectCandidateOnPage(session, index) }
             .getOrDefault(false)
     }
 
     fun highlightOnPage(session: Long, index: Int): Boolean {
         if (!initialized || session == 0L) return false
-        return runCatching { RimeNative.nativeHighlightOnPage(session, index) }.getOrDefault(false)
+        return runCatching { RimeNative.locked.nativeHighlightOnPage(session, index) }.getOrDefault(false)
     }
 
     fun changePage(session: Long, backward: Boolean): Boolean {
         if (!initialized || session == 0L) return false
-        return runCatching { RimeNative.nativeChangePage(session, backward) }.getOrDefault(false)
+        return runCatching { RimeNative.locked.nativeChangePage(session, backward) }.getOrDefault(false)
     }
 
     /** 取提交文本；无提交返回 null。 */
     fun commit(session: Long): String? {
         if (!initialized || session == 0L) return null
-        return runCatching { RimeNative.nativeGetCommit(session) }.getOrNull()
+        return runCatching { RimeNative.locked.nativeGetCommit(session) }.getOrNull()
     }
 
     fun commitComposition(session: Long): Boolean {
         if (!initialized || session == 0L) return false
-        return runCatching { RimeNative.nativeCommitComposition(session) }.getOrDefault(false)
+        return runCatching { RimeNative.locked.nativeCommitComposition(session) }.getOrDefault(false)
     }
 
     fun clearComposition(session: Long) {
         if (!initialized || session == 0L) return
-        runCatching { RimeNative.nativeClearComposition(session) }
+        runCatching { RimeNative.locked.nativeClearComposition(session) }
     }
 
     fun context(session: Long): RimeContext? {
         if (!initialized || session == 0L) return null
-        val raw = runCatching { RimeNative.nativeGetContext(session) }.getOrDefault("")
+        val raw = runCatching { RimeNative.locked.nativeGetContext(session) }.getOrDefault("")
         val map = JsonMini.parseObject(raw) ?: return null
         val candidates = map.list("candidates").map {
             Candidate(it.str("text"), it.str("comment"))
@@ -359,7 +359,7 @@ object RimeEngine {
 
     fun status(session: Long): RimeStatus? {
         if (!initialized || session == 0L) return null
-        val raw = runCatching { RimeNative.nativeGetStatus(session) }.getOrDefault("")
+        val raw = runCatching { RimeNative.locked.nativeGetStatus(session) }.getOrDefault("")
         val map = JsonMini.parseObject(raw) ?: return null
         return RimeStatus(
             schemaId = map.str("schemaId"),
@@ -375,14 +375,14 @@ object RimeEngine {
 
     fun setOption(session: Long, name: String, value: Boolean) {
         if (!initialized || session == 0L) return
-        runCatching { RimeNative.nativeSetOption(session, name, value) }
+        runCatching { RimeNative.locked.nativeSetOption(session, name, value) }
     }
 
 
 
     fun currentSchema(session: Long): String {
         if (!initialized || session == 0L) return ""
-        return runCatching { RimeNative.nativeGetCurrentSchema(session) }.getOrDefault("")
+        return runCatching { RimeNative.locked.nativeGetCurrentSchema(session) }.getOrDefault("")
     }
 
     /** 关闭时把用户词频刷回磁盘，避免丢失学习结果。 */
@@ -392,7 +392,7 @@ object RimeEngine {
     }
 
     private fun nativeSyncUserDataCompat(): Boolean =
-        runCatching { RimeNative.nativeSyncUserData() }.getOrDefault(false)
+        runCatching { RimeNative.locked.nativeSyncUserData() }.getOrDefault(false)
 
     /**
      * 写入用户补丁 `rime_ice.custom.yaml`。

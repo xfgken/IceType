@@ -46,6 +46,13 @@ class MainActivity : ComponentActivity() {
         if (intent?.getBooleanExtra("dump", false) == true) {
             window.decorView.postDelayed({ dumpPixels() }, 5000)
         }
+        // 诊断入口：`--ei stress 200` 在后台跑引擎压力自测（查 librime / lua 崩溃）
+        // 可加 `--es stressMode type|page|commit|session` 只跑某一类操作
+        val stressRounds = intent?.getIntExtra("stress", 0) ?: 0
+        if (stressRounds > 0) {
+            val mode = intent?.getStringExtra("stressMode") ?: "all"
+            com.xfgken.iceime.rime.RimeStress.run(applicationContext, stressRounds, mode)
+        }
     }
 
     /**

@@ -15,9 +15,12 @@ android {
         minSdk = 29
         // targetSdk 37 = Android 17（按用户要求）。
         targetSdk = 37
-        versionCode = 1
-        versionName = "1.0.0"
-        resourceConfigurations += listOf("zh", "en")
+        versionCode = 2
+        versionName = "1.0.1"
+        // 只保留中英文资源（AGP 9 起用 androidResources.localeFilters）
+        androidResources {
+            localeFilters += listOf("zh", "en")
+        }
         // 文档 3.1：仅打包设备 ABI 所需的原生库（librime 只为 arm64-v8a 构建）
         ndk {
             abiFilters += "arm64-v8a"

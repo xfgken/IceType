@@ -95,6 +95,7 @@ app/src/main/java/com/xfgken/iceime/
 - **JNI 用轮询而非回调**：早期用 `GetStaticMethodID` 注册回调，在真机上触发过 ART `ClassLinker::InitializeClass → PrettyDescriptor` 空指针崩溃（tombstone 确认），现在改成 native 侧入队、Kotlin 侧 `nativePollNotification()` 轮询。
 - **R8 保留规则**：`RimeNative` 与 `IceInputMethodService` 必须 `-keep`，否则混淆会破坏 JNI 绑定与系统对输入法服务的实例化。
 - **主题推导**：给定一个色相种子，`KeyboardTheme.schemeFromSeed()` 生成整套配色，保证深/浅两套都有足够对比度。
+- **librime 全局串行锁**：rime 的 Service 不是线程安全的，并发进入会破坏 `lua_State`（`lua_load` 空指针 / longjmp 导致 SIGILL）。所以所有 native 调用都收在 `RimeNative.locked.*` 里，由一把锁串起来；内置压力自测（`--ei stress 400`）连续 1.3 万次引擎调用 0 崩溃。
 
 ---
 
