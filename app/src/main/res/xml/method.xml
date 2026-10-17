@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 输入法元数据：settingsActivity 指向 IceType 主页面，系统键盘设置页可直接跳转。 -->
+<input-method xmlns:android="http://schemas.android.com/apk/res/android"
+    android:settingsActivity="com.xfgken.iceime.MainActivity"
+    android:supportsSwitchingToNextInputMethod="true" />

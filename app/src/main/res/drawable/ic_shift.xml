@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  大小写键默认形态（向上箭头）。路径由用户在需求中直接给出。
+  双击锁定后换成 ic_caps_lock（同一箭头 + 下横线）。
+  Material Symbols 采用 Apache License 2.0。
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="960"
+    android:viewportHeight="960">
+    <group android:translateY="960">
+        <path
+            android:pathData="M480-528 296-344l-56-56 240-240 240 240-56 56-184-184Z"
+            android:fillColor="#FF000000" />
+    </group>
+</vector>

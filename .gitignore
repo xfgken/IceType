@@ -1,0 +1,20 @@
+# 构建产物
+build/
+app/build/
+*.apk
+*.aab
+*.zip
+
+# Gradle / Kotlin
+.gradle/
+.kotlin/
+local.properties
+
+# IDE
+.idea/
+*.iml
+.DS_Store
+
+# 原生构建中间产物
+app/.cxx/
+app/src/main/cpp/build/

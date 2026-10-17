@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <!-- 用户词频、常用语、设置均保存在应用私有目录，允许随系统备份迁移。 -->
+    <include domain="sharedpref" path="." />
+    <include domain="file" path="rime_user/" />
+    <include domain="database" path="." />
+    <exclude domain="file" path="logs/" />
+</full-backup-content>

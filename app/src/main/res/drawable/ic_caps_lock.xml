@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  大写锁定形态（向上箭头 + 下横线）。路径由用户在需求中直接给出。
+  只在「快速双击大写键」后的锁定状态显示。
+  Material Symbols 采用 Apache License 2.0。
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="960"
+    android:viewportHeight="960">
+    <group android:translateY="960">
+        <path
+            android:pathData="M240-240v-80h480v80H240Zm240-496 240 240-56 56-184-184-184 184-56-56 240-240Z"
+            android:fillColor="#FF000000" />
+    </group>
+</vector>

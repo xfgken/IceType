@@ -1,0 +1,117 @@
+# IceType · 冰霜输入法
+
+一个**完全离线**的 Android 中文拼音输入法。输入引擎是 [librime](https://github.com/rime/librime)，词库方案是 [雾凇拼音（Rime Ice）](https://github.com/iDvel/rime-ice)，界面用 Kotlin 手写：设置页是 Jetpack Compose，键盘本身是自绘 View。
+
+- 包名：`com.xfgken.iceime`
+- `minSdk = 29`（Android 10）／`targetSdk = 37`（Android 17）
+- 仅 `arm64-v8a`
+- **不申请网络权限**，没有统计 SDK、没有账号、没有云端，输入数据只留在本机
+
+---
+
+## 下载
+
+| 方式 | 说明 |
+|---|---|
+| Releases 页 | 直接下载 `IceType-v1.0.0.apk` 安装 |
+| 自行构建 | 见下面「从源码构建」 |
+
+安装后在系统的「语言和输入法」里启用「冰霜输入法」并切换为默认输入法即可。
+
+- 首次打开会自动把 20MB 的拼音词典释放到应用私有目录并部署引擎（有进度提示，稍等片刻）
+- 重装 APK 后系统有时会取消启用输入法，重新启用一次就行
+
+---
+
+## 功能
+
+### 输入
+- 中文拼音：全拼、整句、简拼、混拼，候选分页与用户词频学习
+- 英文：`melt_eng` 词表 + 内置英文词库前缀补全
+- 数字、符号键盘；符号页底部是**可横向拖动**的分类条（带惯性）
+- 长按「，」按钮向上拉长，松手得到「。」（英文为「.」）
+- 候选栏两行：上行小字显示拼音音节，下行是候选词；右侧 ✕ 可关闭联想
+- 拼音组合串写进目标输入框（系统下划线），候选栏只放候选
+- 邮箱场景自动给出 `@qq.com` 一类域名候选
+- 回车键文案跟随输入框（搜索 / 发送 / 前往 / 完成 / 换行）
+
+### 键盘内面板
+- **剪贴板**：历史记录、置顶、删除、纯文本粘贴
+- **常用语**：一键上屏、置顶、删除；为空时点击提示直接跳到设置页
+- **表情**：分类 + 常用 + 最近使用
+- **选词**：文本智能分词成词块，右滑依次插入、回滑取消、点选切换
+
+### 外观与反馈
+- 按键音（可读取外部 `key_press_click.wav`，读不到用内置素材）
+- 震动强度 0–50 档
+- 深色 / 浅色 / 跟随系统；强调色由单一色相推导**整套**配色
+- 动画：图标逆时针旋转切换（带回弹）、深浅切换渐变、按下涟漪、面板展开收起
+- 有一个不太容易发现的彩蛋（长按最左侧品牌键 2 秒）
+
+### 设置
+主页（状态卡片 + 分组入口 + 版本与初始化状态）＋ 9 个设置页：键盘与布局、主题与外观、按键音与震动、剪贴板、常用语、表情、引擎与自检、隐私与学习、关于、日志。
+
+---
+
+## 从源码构建
+
+需要：JDK 17、Gradle、Android SDK（platform 37）、NDK r27（重新编译 librime 时用）。
+
+```bash
+# 打包（产物复制到 Download 目录）
+bash scripts/build-apk.sh
+```
+
+只想改 Kotlin / 资源时不用动原生库，`app/src/main/jniLibs/arm64-v8a/` 里已经放好编译好的 `librime.so`、`libiceime_rime.so` 与 `libc++_shared.so`。
+
+本仓库直接包含：
+- `app/src/main/assets/rime/`：雾凇拼音完整配置与词典（`base.dict.yaml` 16MB）
+- `app/src/main/cpp/icetype_rime.cpp`：自研 JNI 层
+- `keystore/icetype.jks`：release 签名（口令见 `app/build.gradle.kts`）
+
+> 注意：仓库里的 keystore 是公开的，只适合自用分发，不要用它给应用商店包签名。
+
+---
+
+## 工程结构
+
+```
+app/src/main/java/com/xfgken/iceime/
+├── MainActivity.kt            # 唯一入口，支持 --es page <枚举名> 直达设置页
+├── core/                      # 配置（IcePrefs）、日志（AppLog）
+├── rime/                      # 引擎：RimeNative(JNI 声明) / RimeEngine / 资源释放 / 自检
+├── ime/                       # 键盘本体：输入法服务、自绘键盘、候选栏、面板、主题
+├── data/                      # 剪贴板、常用语、表情、英文词库、联想词表、符号历史
+└── ui/                        # Compose 设置页（主页 / 各分区 / 剪贴板页 / 常用语页）
+```
+
+更详细的说明（模块职责、JNI 与 R8 的坑、构建环境、已知问题、开发约定）见 [项目.md](项目.md)。
+
+---
+
+## 技术要点
+
+- **自绘键盘**：`KeyboardView` 自己算命中、绘制与多点触控；滑动不当作打字，抬手仍停在原键才上屏。
+- **JNI 用轮询而非回调**：早期用 `GetStaticMethodID` 注册回调，在真机上触发过 ART `ClassLinker::InitializeClass → PrettyDescriptor` 空指针崩溃（tombstone 确认），现在改成 native 侧入队、Kotlin 侧 `nativePollNotification()` 轮询。
+- **R8 保留规则**：`RimeNative` 与 `IceInputMethodService` 必须 `-keep`，否则混淆会破坏 JNI 绑定与系统对输入法服务的实例化。
+- **主题推导**：给定一个色相种子，`KeyboardTheme.schemeFromSeed()` 生成整套配色，保证深/浅两套都有足够对比度。
+
+---
+
+## 许可与致谢
+
+| 组件 | 许可 |
+|---|---|
+| librime / librime-lua | BSD-3-Clause |
+| 雾凇拼音 Rime Ice | GPL-3.0 |
+| OpenCC | Apache-2.0 |
+| boost | Boost 1.0 |
+| leveldb | BSD-3-Clause |
+| marisa-trie | BSD-2-Clause |
+| yaml-cpp | MIT |
+| Lua | MIT |
+| AndroidX / Compose | Apache-2.0 |
+
+许可证原文见 `LICENSES/`；图标取自 Google Material Symbols（Apache-2.0），来源映射见 `docs/ICON_ASSET_MAP.md`。
+
+本工程本质是**输入法前端 + 引擎集成**，真正的中文输入能力来自 librime 与雾凇拼音方案，感谢上游作者。

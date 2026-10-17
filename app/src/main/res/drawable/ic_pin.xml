@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  fonts.google.com/icons 官方图标 "push_pin"（Material Symbols Outlined, 24px）。
+  原始 SVG 缓存在 docs/google-icons-svg/push_pin.svg
+  由 scripts/fetch-google-font-icons.py 自动转换，请勿手工修改。
+  Material Symbols 采用 Apache License 2.0。
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="960"
+    android:viewportHeight="960">
+    <group android:translateY="960">
+    <path
+        android:pathData="m640-480 80 80v80H520v240l-40 40-40-40v-240H240v-80l80-80v-280h-40v-80h400v80h-40v280Zm-286 80h252l-46-46v-314H400v314l-46 46Zm126 0Z"
+        android:fillColor="#FF000000" />
+    </group>
+</vector>

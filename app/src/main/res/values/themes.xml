@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      Activity 主题：真正的视觉由 Compose 的 MaterialTheme 提供，
+      这里只负责窗口层面（无 ActionBar、透明系统栏、无多余装饰）。
+      values-night 中切换为深色基底。
+    -->
+    <style name="Theme.IceType" parent="android:Theme.DeviceDefault.Light.NoActionBar">
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowNoTitle">true</item>
+    </style>
+
+    <!-- 输入法键盘窗口：不能有标题栏，背景必须不透明（否则与下方应用内容叠影）。 -->
+    <style name="Theme.IceType.Keyboard" parent="android:Theme.DeviceDefault.NoActionBar">
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowFullscreen">false</item>
+    </style>
+</resources>

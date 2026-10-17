@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  fonts.google.com/icons 官方图标 "close"（Material Symbols Outlined, 24px）。
+  原始 SVG 缓存在 docs/google-icons-svg/close.svg
+  由 scripts/fetch-google-font-icons.py 自动转换，请勿手工修改。
+  Material Symbols 采用 Apache License 2.0。
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="960"
+    android:viewportHeight="960">
+    <group android:translateY="960">
+    <path
+        android:pathData="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z"
+        android:fillColor="#FF000000" />
+    </group>
+</vector>
