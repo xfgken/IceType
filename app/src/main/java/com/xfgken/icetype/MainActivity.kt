@@ -5,9 +5,17 @@ import androidx.activity.ComponentActivity
 import android.content.Intent
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import com.xfgken.icetype.core.AppLog
+import androidx.compose.ui.Modifier
+import com.xfgken.icetype.rime.RimeEngine
+import com.xfgken.icetype.ui.DeployOverlay
 import com.xfgken.icetype.ui.IceTypeApp
+import com.xfgken.icetype.ui.IceTypeTheme
 import com.xfgken.icetype.ui.SettingsPage
 
 /** 应用主入口：只负责承载 Compose 主页面。 */
@@ -35,11 +43,24 @@ class MainActivity : ComponentActivity() {
         pageRequest.value = parsePage(intent?.getStringExtra("page"))
         scrollBottom = intent?.getBooleanExtra("scrollBottom", false) == true
         setContent {
-            IceTypeApp(
-                initialPage = pageRequest.value,
-                pageRequestToken = pageToken.value,
-                initialScrollBottom = scrollBottom,
-            )
+            // 部署遮罩叠在**整个应用**之上（含所有设置子页）：启动时要编译 190 万词条，
+            // 这期间引擎索引不完整，允许用户到处点只会看到"候选为空"，所以直接强制等待。
+            // 部署一结束，遮罩自动消失，界面立即可用。
+            val deploy = RimeEngine.deploy.collectAsState().value
+            val deploying = deploy.state == RimeEngine.State.INSTALLING ||
+                deploy.state == RimeEngine.State.DEPLOYING
+            Box(Modifier.fillMaxSize()) {
+                IceTypeApp(
+                    initialPage = pageRequest.value,
+                    pageRequestToken = pageToken.value,
+                    initialScrollBottom = scrollBottom,
+                )
+                if (deploying) {
+                    IceTypeTheme {
+                        DeployOverlay(message = deploy.message, percent = deploy.percent)
+                    }
+                }
+            }
         }
         // 诊断入口：`--ez dump true` 时把页面渲染结果按行统计写进日志
         // （用于在不截屏、不点屏幕的情况下确认某个区域到底画出来了没有）

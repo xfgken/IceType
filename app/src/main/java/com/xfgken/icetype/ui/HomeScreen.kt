@@ -31,7 +31,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -53,7 +52,6 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.xfgken.icetype.R
 import com.xfgken.icetype.core.AppLog
 import com.xfgken.icetype.ime.ImeStatus
-import com.xfgken.icetype.rime.RimeEngine
 
 /** 设置子页面标识。 */
 enum class SettingsPage {
@@ -84,7 +82,7 @@ fun HomeScreen(
 ) {
     val context = LocalContext.current
     val settings = rememberSettings()
-    val deploy = RimeEngine.deploy.collectAsState().value
+    // 部署遮罩由 MainActivity 统一叠加（覆盖全部页面），这里不再观察部署状态
     var imeState by remember { mutableStateOf(ImeStatus.currentState(context)) }
     var showManualHint by remember { mutableStateOf(false) }
 
@@ -122,14 +120,6 @@ fun HomeScreen(
                 .padding(horizontal = 16.dp, vertical = 16.dp),
         ) {
             HeaderSection()
-
-            // 部署进度：非阻塞、不遮挡，可以照常往下翻阅设置；部署完成后自动消失。
-            if (deploy.state == RimeEngine.State.INSTALLING ||
-                deploy.state == RimeEngine.State.DEPLOYING
-            ) {
-                Spacer(Modifier.height(12.dp))
-                DeployBanner(message = deploy.message, percent = deploy.percent)
-            }
 
             Spacer(Modifier.height(16.dp))
 
@@ -206,75 +196,6 @@ private fun GroupTitle(text: String) {
         color = MaterialTheme.colorScheme.onBackground,
         modifier = Modifier.padding(bottom = 8.dp),
     )
-}
-
-/**
- * 首页的「词库准备中」提示条。
- *
- * 刻意做成**页面内的一条卡片**而不是弹窗：首次安装需要 20–35 秒编译词库，
- * 用带遮罩的对话框会把用户锁在那里干等；这里不遮挡、不拦截点击，
- * 用户可以先去翻设置，进度就地更新，完成即自动消失。
- */
-@Composable
-private fun DeployBanner(message: String, percent: Int) {
-    val accent = MaterialTheme.colorScheme.primary
-    val track = MaterialTheme.colorScheme.surfaceVariant
-    val fraction = if (percent in 1..100) percent / 100f else 0f
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = HomeCardShape,
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-        ),
-    ) {
-        Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_book),
-                    contentDescription = null,
-                    tint = accent,
-                    modifier = Modifier.size(18.dp),
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    text = if (percent in 1..99) "正在准备词库（$percent%）" else "正在准备词库…",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.weight(1f),
-                )
-            }
-            Spacer(Modifier.height(10.dp))
-            // 自绘进度条：不依赖 M3 进度组件的版本差异
-            Box(
-                Modifier
-                    .fillMaxWidth()
-                    .height(5.dp)
-                    .clip(RoundedCornerShape(3.dp))
-                    .background(track),
-            ) {
-                if (fraction > 0f) {
-                    Box(
-                        Modifier
-                            .fillMaxWidth(fraction)
-                            .height(5.dp)
-                            .clip(RoundedCornerShape(3.dp))
-                            .background(accent),
-                    )
-                }
-            }
-            Spacer(Modifier.height(8.dp))
-            Text(
-                text = message.ifEmpty {
-                    "首次安装需要编译词库，可以先浏览设置；准备完成前键盘暂不可用，无需停留在此页。"
-                },
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 3,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-    }
 }
 
 @Composable
