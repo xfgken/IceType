@@ -30,6 +30,13 @@ class IceApp : Application() {
         EmojiData.init(this)
         SymbolHistory.init(this)
         AppLog.i(AppLog.Category.INIT, "IceType 应用进程启动（应用级初始化完成）")
+        // 把与「手感」相关的默认值写进日志，便于不打开界面就核对（新装应为 false / false）
+        val feel = IcePrefs.current()
+        AppLog.i(
+            AppLog.Category.INIT,
+            "声音与震动：按键音=${feel.soundEnabled}（音量 ${feel.keySoundVolume}）" +
+                "，震动=${feel.vibrateEnabled}（强度 ${feel.vibrateStrength}）",
+        )
         // 启动即记录一次输入法状态判定过程，便于核对检测是否准确
         AppLog.i(AppLog.Category.UI, "输入法状态判定：${ImeStatus.debugText(this)}")
 

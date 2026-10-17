@@ -46,10 +46,12 @@ object IcePrefs {
         val funcKeyBgArgb: Int? = null,
         val keyTextArgb: Int? = null,
         // —— 声音与震动 ——
-        val soundEnabled: Boolean = true,
+        /** 按键音默认关闭（首次安装即静音，需要时到「声音与震动」里打开）。 */
+        val soundEnabled: Boolean = false,
         /** 按键音音量（0–100），0 为静音。 */
         val keySoundVolume: Int = 60,
-        val vibrateEnabled: Boolean = true,
+        /** 震动默认关闭。 */
+        val vibrateEnabled: Boolean = false,
         /** 震动挡位（0–50，1 挡最轻、50 挡最强；0 表示几乎无感）。 */
         val vibrateStrength: Int = 25,
         // —— 剪贴板 ——
