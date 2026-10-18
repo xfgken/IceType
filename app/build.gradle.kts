@@ -15,8 +15,8 @@ android {
         minSdk = 29
         // targetSdk 37 = Android 17（按用户要求）。
         targetSdk = 37
-        versionCode = 15
-        versionName = "1.20"
+        versionCode = 16
+        versionName = "1.21"
         // 只保留中英文资源（AGP 9 起用 androidResources.localeFilters）
         androidResources {
             localeFilters += listOf("zh", "en")
