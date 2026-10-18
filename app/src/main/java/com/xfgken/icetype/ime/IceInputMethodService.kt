@@ -1588,6 +1588,8 @@ class IceInputMethodService : InputMethodService() {
             mode.layoutParams = lp2
         }
         anim.start()
+        // 彩蛋期间把切换圆推出来：立刻让它一起转（否则要等下一次心跳，看起来「不跟着转」）
+        if (eggRunning && on) spinToolbarChild(mode)
     }
 
     /** 当前是不是深色（跟随系统时看系统）。 */
@@ -1755,15 +1757,18 @@ class IceInputMethodService : InputMethodService() {
      *  · 只做这一件事，其它按钮的随机速度/方向完全不受影响。
      */
     private fun startBrandEggSpin() {
-        val brand = brandIconNormal ?: return
-        brand.setImageResource(R.drawable.ic_egg_bloom)
+        val root = toolbarBrand ?: return
+        // 图标换成彩蛋专用 SVG：两副图标（品牌 / 叉）都换，当前显示的是哪副就转哪副
+        brandIconNormal?.setImageResource(R.drawable.ic_egg_bloom)
+        brandIconAlt?.setImageResource(R.drawable.ic_egg_bloom)
         brandEggAnim?.let { runCatching { it.cancel() } }
-        // 逆时针 = rotation 逐渐减小（Android 里 rotation 增大才是顺时针，所以这里方向反过来）
+        // 转的是**整个按钮**（外框 + 实色底 + 里面的图标一起），
+        // 以前只转里面那枚 22dp 图标，看着就是「外框和底不跟着转」。
         val anim = android.animation.ObjectAnimator.ofFloat(
-            brand,
+            root,
             "rotation",
-            brand.rotation + 360f,
-            brand.rotation,
+            root.rotation + 360f,
+            root.rotation,
         )
         anim.duration = BRAND_EGG_SPIN_MS
         anim.interpolator = android.view.animation.LinearInterpolator()
@@ -1790,7 +1795,7 @@ class IceInputMethodService : InputMethodService() {
                     }
                     val prev = toolbarEggLastRot[child]
                     val now = child.rotation
-                    if (prev != null && kotlin.math.abs(now - prev) < 0.01f) {
+                    if (prev == null || kotlin.math.abs(now - prev) < 0.01f) {
                         spinToolbarChild(child)
                     }
                     toolbarEggLastRot[child] = now
@@ -1816,9 +1821,11 @@ class IceInputMethodService : InputMethodService() {
         toolbarEggAnims.forEach { runCatching { it.cancel() } }
         toolbarEggAnims.clear()
         brandEggAnim = null
-        // 左侧按钮恢复原来的图标（彩蛋结束就变回去）
+        // 左侧按钮恢复原来的图标（彩蛋结束就变回去；两副图标都要还原）
         brandIconNormal?.setImageResource(R.drawable.ic_brand)
         brandIconNormal?.setColorFilter(KeyboardTheme.palette(this).onSurfaceVariant)
+        brandIconAlt?.setImageResource(R.drawable.ic_close)
+        brandIconAlt?.setColorFilter(PANEL_CROSS_COLOR)
         brandIconNormal?.visibility = if (brandExpanded) View.GONE else View.VISIBLE
         brandIconAlt?.visibility = if (brandExpanded) View.VISIBLE else View.GONE
         candidateBar?.stopEgg()

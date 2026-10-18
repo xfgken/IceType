@@ -206,20 +206,40 @@ private fun Confirm(
 fun KeyboardSettingsPage() {
     val context = LocalContext.current
     val settings = rememberSettings()
+    val scope = rememberCoroutineScope()
     // 测试输入框已移到主页面的「输入法测试」里
 
-    SectionCard("输入行为") {
+    SectionCard("输入与候选") {
         Item {
             SwitchRow(
                 title = "默认中文输入",
                 desc = "进入文本框时默认使用中文拼音键盘",
                 checked = settings.chineseDefault,
             ) { IcePrefs.edit { e -> e.putBoolean("chineseDefault", it) } }
-Item {
+        }
+        Item {
             SwitchRow(
                 title = "显示候选栏",
                 checked = settings.candidateBarVisible,
             ) { IcePrefs.edit { e -> e.putBoolean("candidateBarVisible", it) } }
+        }
+        Item {
+            SwitchRow(
+                title = "英文候选",
+                desc = "关闭后英文键盘直接上屏字母",
+                checked = settings.englishCandidates,
+            ) { IcePrefs.edit { e -> e.putBoolean("englishCandidates", it) } }
+        }
+        Item {
+            SwitchRow(
+                title = "词频学习",
+                desc = "关闭后不再把上屏词条写入用户词典",
+                checked = settings.learningEnabled,
+            ) { enabled ->
+                IcePrefs.edit { e -> e.putBoolean("learningEnabled", enabled) }
+                scope.launch { RimeEngine.setLearningEnabled(context, enabled) }
+                AppLog.i(AppLog.Category.PRIVACY, "词频学习开关：$enabled")
+            }
         }
         Item {
             SwitchRow(
@@ -228,7 +248,6 @@ Item {
                 checked = settings.blindTyping,
             ) { IcePrefs.setBlindTyping(it) }
         }
-    }
     }
 
     // 游戏键盘：开关 + 悬浮键盘大小调节，放在同一张卡片里
@@ -910,16 +929,6 @@ fun RimeSettingsPage() {
         }
     }
 
-    SectionCard("语言与候选") {
-        Item {
-            SwitchRow(
-                title = "英文候选",
-                desc = "关闭后英文键盘直接上屏字母",
-                checked = settings.englishCandidates,
-            ) { IcePrefs.edit { e -> e.putBoolean("englishCandidates", it) } }
-        }
-    }
-
     SectionCard("用户数据") {
         Item {
             Text(
@@ -980,19 +989,6 @@ fun PrivacySettingsPage() {
     var confirmClear by remember { mutableStateOf(false) }
 
     SectionCard("学习") {
-        Item {
-            SwitchRow(
-                title = "启用词频学习",
-                desc = "关闭后不再把上屏词条写入用户词典",
-                checked = settings.learningEnabled,
-            ) { enabled ->
-                IcePrefs.edit { e -> e.putBoolean("learningEnabled", enabled) }
-                scope.launch {
-                    RimeEngine.setLearningEnabled(context, enabled)
-                }
-                AppLog.i(AppLog.Category.PRIVACY, "词频学习开关：$enabled")
-            }
-        }
         Item {
             OutlinedButton(onClick = { confirmClear = true }) { Text("重置用户词频") }
         }

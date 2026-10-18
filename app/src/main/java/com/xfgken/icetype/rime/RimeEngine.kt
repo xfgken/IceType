@@ -201,6 +201,30 @@ object RimeEngine {
     var deployFull: Boolean = false
         private set
 
+    private val _deployDonePending = kotlinx.coroutines.flow.MutableStateFlow(false)
+
+    /**
+     * 部署已结束、等用户点「确定」。
+     *
+     * 用 StateFlow 而不是让界面自己 remember：部署跑在 Application 的协程里，
+     * Activity 重建后 remember 会丢，完成面板就会「闪一下就没」。
+     */
+    val deployDonePending: kotlinx.coroutines.flow.StateFlow<Boolean> = _deployDonePending
+
+    private fun markDeployDone(pending: Boolean) {
+        // 只存进程内状态：重启应用后不会再弹上一次的完成面板
+        _deployDonePending.value = pending
+    }
+
+    /** 用户点了「确定」。 */
+    fun clearDeployDonePending() {
+        runCatching {
+            val frames = Throwable().stackTrace.take(6).joinToString(" <- ") { it.toString() }
+            AppLog.w(AppLog.Category.UI, "清除完成面板标记，调用栈：$frames")
+        }
+        markDeployDone(false)
+    }
+
     /** 本次部署的开始时间（毫秒）。 */
     @Volatile
     var deployStartedAt: Long = 0L
@@ -221,6 +245,9 @@ object RimeEngine {
         _deploy.value = _deploy.value.copy(
             state = State.DEPLOYING,
             message = if (full) "正在部署词库并编译方案（首次较慢）…" else "正在校验词库版本…",
+            // 编译阶段 librime 不提供百分比：置 -1 表示「未知」，
+            // 界面据此显示滑动的不确定进度条（以前会沿用资源释放阶段的 100%，看着像已经完成）。
+            percent = -1,
             engineVersion = engineVersion,
         )
         val started = System.currentTimeMillis()
@@ -235,7 +262,7 @@ object RimeEngine {
             if (!ok && full) {
                 AppLog.w(AppLog.Category.DEPLOY, "请求完整部署但 start_maintenance 返回 false")
             }
-            RimeNative.locked.nativeJoinMaintenance()
+            joinMaintenanceWithProgress(context, started)
             drainNotifications()
             val cost = System.currentTimeMillis() - started
             val message = "词库部署完成，用时 ${cost / 1000.0} 秒" +
@@ -243,6 +270,9 @@ object RimeEngine {
             AppLog.i(AppLog.Category.DEPLOY, message)
             logBuildArtifacts(context)
             IcePrefs.setDeployResult(RimeAssetInstaller.ASSET_VERSION, true, message)
+            // 只有「完整部署」或确实编译了很久才弹完成面板：
+            // 平时冷启动只是几毫秒的增量校验，弹一下又消失非常打扰。
+            if (full || cost > 2000L) markDeployDone(true)
             _deploy.value = _deploy.value.copy(state = State.READY, message = message, percent = 100)
             isDeploying = false
             true
@@ -250,10 +280,71 @@ object RimeEngine {
             AppLog.throwable(AppLog.Category.DEPLOY, "词库部署失败", t)
             val message = "词库部署失败：${t.javaClass.simpleName}: ${t.message}"
             IcePrefs.setDeployResult(RimeAssetInstaller.ASSET_VERSION, false, message)
+            markDeployDone(true)
             _deploy.value = _deploy.value.copy(state = State.FAILED, message = message)
             isDeploying = false
             false
         }
+    }
+
+    /**
+     * 等待维护/编译结束，同时**按真实产物**输出进度。
+     *
+     * 为什么不能靠时间凑日志：librime 的编译日志在构建时被关掉了（`-DENABLE_LOGGING=OFF`），
+     * `nativeJoinMaintenance` 又是阻塞调用 —— 直接等的话整个编译期间一条日志都没有。
+     * 但编译过程本身会不断往 `userDir/build` 写文件（prism / table / reverse），
+     * 所以这里盯着这个目录：谁刚出现、谁在变大，就按实际发生的事输出一行，
+     * 例如「开始编译 rime_ice.prism.bin」「编译 rime_ice.table.bin：23.4 MB」。
+     */
+    private fun joinMaintenanceWithProgress(context: Context, startedAt: Long) {
+        val finished = java.util.concurrent.atomic.AtomicBoolean(false)
+        val worker = Thread {
+            runCatching { RimeNative.locked.nativeJoinMaintenance() }
+            finished.set(true)
+        }
+        worker.isDaemon = true
+        worker.start()
+
+        val buildDir = File(RimeAssetInstaller.userDir(context), "build")
+        val seenBytes = HashMap<String, Long>()
+        val lastLogAt = HashMap<String, Long>()
+        AppLog.i(AppLog.Category.DEPLOY, "词库维护已启动，开始编译方案与词典")
+
+        while (!finished.get()) {
+            runCatching {
+                val files = buildDir.listFiles()?.filter { it.isFile }.orEmpty()
+                val now = System.currentTimeMillis()
+                for (f in files) {
+                    val size = f.length()
+                    val prev = seenBytes[f.name]
+                    if (prev == null) {
+                        seenBytes[f.name] = size
+                        lastLogAt[f.name] = now
+                        AppLog.i(AppLog.Category.DEPLOY, "开始生成 ${f.name}")
+                        _deploy.value = _deploy.value.copy(message = "正在编译 ${f.name}")
+                    } else if (size != prev && now - (lastLogAt[f.name] ?: 0L) >= 1500L) {
+                        seenBytes[f.name] = size
+                        lastLogAt[f.name] = now
+                        val human = humanSize(size)
+                        AppLog.i(AppLog.Category.DEPLOY, "生成 ${f.name}：$human")
+                        _deploy.value = _deploy.value.copy(message = "正在编译 ${f.name}（$human）")
+                    }
+                }
+            }
+            runCatching { Thread.sleep(400) }
+        }
+        runCatching { worker.join() }
+        val cost = System.currentTimeMillis() - startedAt
+        if (cost > 1200) {
+            AppLog.i(AppLog.Category.DEPLOY, "词库维护结束，用时 ${cost / 1000.0} 秒")
+        }
+    }
+
+    /** 人类可读的体积（KB / MB）。 */
+    private fun humanSize(bytes: Long): String = when {
+        bytes >= 1024L * 1024L -> String.format(java.util.Locale.US, "%.1f MB", bytes / 1024.0 / 1024.0)
+        bytes >= 1024L -> String.format(java.util.Locale.US, "%.0f KB", bytes / 1024.0)
+        else -> "$bytes B"
     }
 
     /**

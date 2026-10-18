@@ -7,11 +7,15 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import com.xfgken.icetype.core.AppLog
 import androidx.compose.ui.Modifier
+import com.xfgken.icetype.core.IcePrefs
 import com.xfgken.icetype.rime.RimeEngine
 import com.xfgken.icetype.ui.DeployOverlay
 import com.xfgken.icetype.ui.IceTypeApp
@@ -49,15 +53,44 @@ class MainActivity : ComponentActivity() {
             val deploy = RimeEngine.deploy.collectAsState().value
             val deploying = deploy.state == RimeEngine.State.INSTALLING ||
                 deploy.state == RimeEngine.State.DEPLOYING
+            // 「部署结束、等用户确定」只存进程内状态：重启应用后不会再弹。
+            val pendingDone by RimeEngine.deployDonePending.collectAsState()
+            // 进行中只认「完整部署」：冷启动那点毫秒级增量校验不弹面板。
+            val workingVisible = deploying && RimeEngine.deployFull
+            val deployOk = !deploying && pendingDone && deploy.state == RimeEngine.State.READY
+            val deployFailed = !deploying && pendingDone && deploy.state == RimeEngine.State.FAILED
+            val showDeployPanel = workingVisible || deployOk || deployFailed
+            LaunchedEffect(deploying, pendingDone) {
+                com.xfgken.icetype.core.AppLog.i(
+                    com.xfgken.icetype.core.AppLog.Category.UI,
+                    "部署面板判定：deploying=$deploying，完整部署=${RimeEngine.deployFull}，" +
+                        "待确认=$pendingDone，状态=${deploy.state}",
+                )
+            }
+            LaunchedEffect(showDeployPanel) {
+                if (showDeployPanel && (deployOk || deployFailed)) {
+                    com.xfgken.icetype.core.AppLog.i(
+                        com.xfgken.icetype.core.AppLog.Category.UI,
+                        "部署完成面板显示（成功=$deployOk，失败=$deployFailed），等待用户确定",
+                    )
+                }
+            }
+
             Box(Modifier.fillMaxSize()) {
                 IceTypeApp(
                     initialPage = pageRequest.value,
                     pageRequestToken = pageToken.value,
                     initialScrollBottom = scrollBottom,
                 )
-                if (deploying) {
+                if (showDeployPanel) {
                     IceTypeTheme {
-                        DeployOverlay(message = deploy.message, percent = deploy.percent)
+                        DeployOverlay(
+                            message = deploy.message,
+                            percent = deploy.percent,
+                            done = deployOk || deployFailed,
+                            failed = deployFailed,
+                            onConfirm = { RimeEngine.clearDeployDonePending() },
+                        )
                     }
                 }
             }

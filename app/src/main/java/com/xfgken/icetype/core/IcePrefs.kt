@@ -238,4 +238,15 @@ object IcePrefs {
         it.putString("lastDeployMessage", message)
     }
 
+    /**
+     * 「部署已结束、但用户还没点确定」。
+     *
+     * 落盘保存而不是放在 Compose 的 remember 里：部署跑在 Application 线程，
+     * Activity 有可能被系统重建，remember 一重置，完成面板就会「闪一下就没了」。
+     */
+    fun deployDonePending(): Boolean = sp.getBoolean("deployDonePending", false)
+
+    fun setDeployDonePending(pending: Boolean) =
+        edit { it.putBoolean("deployDonePending", pending) }
+
 }

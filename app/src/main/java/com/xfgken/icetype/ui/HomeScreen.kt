@@ -167,9 +167,6 @@ fun HomeScreen(
 
             Spacer(Modifier.height(16.dp))
             GroupTitle("其它")
-            SettingsEntry(R.drawable.ic_shield, R.string.card_privacy, R.string.card_privacy_desc) {
-                onNavigate(SettingsPage.PRIVACY)
-            }
             SettingsEntry(R.drawable.ic_info, R.string.card_about, R.string.card_about_desc) {
                 onNavigate(SettingsPage.ABOUT)
             }

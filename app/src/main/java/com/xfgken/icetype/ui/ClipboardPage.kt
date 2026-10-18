@@ -470,7 +470,8 @@ private fun ClipRow(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { if (managing) onToggleCheck() else onEdit() }
+                    // 点内容不再进编辑：只在多选时点它来勾选（编辑走展开区里的按钮）
+                    .clickable(enabled = managing) { onToggleCheck() }
                     .padding(horizontal = 12.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -544,14 +545,28 @@ private fun ClipRow(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         SolidAction(R.drawable.ic_phrase, "添加到常用语", onClick = onToPhrase)
-                        // 变长（宽度）与变红都是动画
-                        SolidAction(
-                            R.drawable.ic_delete,
-                            if (armed) "确定删除" else "删除",
-                            tint = dangerColor,
-                            animateSize = true,
-                            onClick = { if (armed) onDelete() else armed = true },
-                        )
+                        // 右侧一组：编辑在左、删除在最右。
+                        // 删除变长时整组跟着往左推（编辑按钮尺寸不变，只是被推着左移），
+                        // 所以旁边的按钮不会被拉变形。
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            SolidAction(
+                                R.drawable.ic_edit_square,
+                                "编辑",
+                                iconOnly = true,
+                                onClick = onEdit,
+                            )
+                            // 变长（宽度）与变红都是动画
+                            SolidAction(
+                                R.drawable.ic_delete,
+                                if (armed) "确定删除" else "删除",
+                                tint = dangerColor,
+                                animateSize = true,
+                                onClick = { if (armed) onDelete() else armed = true },
+                            )
+                        }
                     }
                 }
             }
@@ -594,6 +609,7 @@ private fun SolidAction(
     label: String,
     tint: Color = MaterialTheme.colorScheme.onSurfaceVariant,
     animateSize: Boolean = false,
+    iconOnly: Boolean = false,
     onClick: () -> Unit,
 ) {
     Row(
@@ -611,8 +627,16 @@ private fun SolidAction(
             tint = tint,
             modifier = Modifier.size(18.dp),
         )
-        Spacer(Modifier.width(6.dp))
-        Text(label, style = MaterialTheme.typography.labelMedium, color = tint)
+        if (!iconOnly) {
+            Spacer(Modifier.width(6.dp))
+            Text(
+                label,
+                style = MaterialTheme.typography.labelMedium,
+                color = tint,
+                maxLines = 1,
+                softWrap = false,
+            )
+        }
     }
 }
 
