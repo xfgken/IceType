@@ -5,7 +5,6 @@
     <string name="ime_name">IceType 冰霜输入法</string>
 
     <!-- 状态卡片 -->
-    <string name="status_title">输入法状态</string>
     <string name="status_disabled">未启用</string>
     <string name="status_disabled_desc">IceType 还没有在系统设置中启用，请先启用输入法。</string>
     <string name="status_enabled">已启用，未选择</string>
@@ -31,44 +30,24 @@
     <string name="card_emoji_desc">分类、最近使用</string>
     <string name="card_rime">词库与语言</string>
     <string name="card_rime_desc">方案切换、英文候选、学习</string>
-    <string name="card_privacy">隐私与学习</string>
-    <string name="card_privacy_desc">学习开关、隐私说明</string>
     <string name="card_about">关于 IceType</string>
     <string name="card_about_desc">版本、作者与项目主页</string>
 
     <!-- 快捷入口 -->
-    <string name="quick_test">测试键盘</string>
     <string name="quick_log">诊断日志</string>
     <string name="card_log_desc">运行日志与错误信息</string>
-    <string name="quick_reset">重置初始化</string>
-    <string name="quick_about">关于 IceType</string>
 
-    <string name="footer_version">版本 %1$s · %2$s</string>
-    <string name="rime_ready">词库已就绪</string>
-    <string name="rime_not_ready">词库未就绪</string>
-    <string name="rime_deploying">正在部署词库…</string>
-    <string name="rime_deploy_failed">词库部署失败</string>
 
     <!-- 键盘 -->
-    <string name="kbd_space">空格</string>
-    <string name="kbd_enter">回车</string>
-    <string name="kbd_backspace">退格</string>
-    <string name="kbd_shift">上档</string>
     <string name="kbd_symbol">符号</string>
-    <string name="kbd_number">数字</string>
-    <string name="kbd_letter">字母</string>
     <string name="kbd_symbols_entry">符号键盘</string>
     <string name="kbd_emoji">表情</string>
     <string name="kbd_clipboard">剪贴板</string>
     <string name="kbd_settings">设置</string>
     <string name="kbd_hide">收起键盘</string>
     <string name="kbd_chinese">中文</string>
-    <string name="kbd_english">英文</string>
     <string name="kbd_phrase">常用语</string>
     <string name="clipboard_empty">剪贴板为空</string>
-    <string name="phrase_empty">还没有常用语，去“常用语”里添加</string>
-    <string name="emoji_recent">最近</string>
 
-    <string name="no_candidates_hint">暂无候选</string>
     <string name="kbd_toggle_theme">深色 / 浅色切换</string>
 </resources>
