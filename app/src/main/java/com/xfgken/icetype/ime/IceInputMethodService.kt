@@ -2892,6 +2892,9 @@ class IceInputMethodService : InputMethodService() {
         val text = clipboardSuggestionText ?: return
         playTypeSound()
         commitToEditor(text)
+        // 上屏后不联想（清掉残留联想词），并把这条内容记为已消费，之后不再自动弹出
+        predictionWords = emptyList()
+        clipboardSuggestionDismissed = text
         clearClipboardSuggestion()
         AppLog.i(AppLog.Category.CLIPBOARD, "剪贴板候选上屏（长度 ${text.length}）")
     }
