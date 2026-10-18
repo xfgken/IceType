@@ -49,6 +49,7 @@ object IcePrefs {
         val keyBgArgb: Int? = null,
         val funcKeyBgArgb: Int? = null,
         val keyTextArgb: Int? = null,
+        val deepBgArgb: Int? = null,
         // —— 声音与震动 ——
         /** 按键音默认关闭（首次安装即静音，需要时到「声音与震动」里打开）。 */
         val soundEnabled: Boolean = false,
@@ -64,6 +65,8 @@ object IcePrefs {
         val clipboardCandidateEnabled: Boolean = true,
         val clipboardHistoryEnabled: Boolean = true, // 默认开启（仅本地保存，可在设置里关闭）
         val clipboardHistoryLimit: Int = 1000,
+        /** 被用户点 ✕ 关闭过、或打字让位消费过的剪贴板内容；持久化，切换输入法/服务重启后仍记住。 */
+        val clipboardDismissedText: String? = null,
         // —— 常用语 / 表情 ——
         val phraseEnabled: Boolean = true,
         val emojiEnabled: Boolean = true,
@@ -144,6 +147,7 @@ object IcePrefs {
             keyBgArgb = sp.optInt("keyBgArgb"),
             funcKeyBgArgb = sp.optInt("funcKeyBgArgb"),
             keyTextArgb = sp.optInt("keyTextArgb"),
+            deepBgArgb = sp.optInt("deepBgArgb"),
             soundEnabled = sp.getBoolean("soundEnabled", d.soundEnabled),
             keySoundVolume = sp.getInt("keySoundVolume", d.keySoundVolume),
             vibrateEnabled = sp.getBoolean("vibrateEnabled", d.vibrateEnabled),
@@ -153,6 +157,7 @@ object IcePrefs {
             clipboardHistoryEnabled = sp.getBoolean("clipboardHistoryEnabled", d.clipboardHistoryEnabled),
             clipboardHistoryLimit = sp.getInt("clipboardHistoryLimit", d.clipboardHistoryLimit)
                 .coerceIn(10, 5000),
+            clipboardDismissedText = sp.getString("clipboardDismissedText", null),
             phraseEnabled = sp.getBoolean("phraseEnabled", d.phraseEnabled),
             emojiEnabled = sp.getBoolean("emojiEnabled", d.emojiEnabled),
             englishCandidates = sp.getBoolean("englishCandidates", d.englishCandidates),
@@ -202,6 +207,8 @@ object IcePrefs {
 
     /** 剪贴板候选开关。 */
     fun setClipboardCandidate(enabled: Boolean) = edit { it.putBoolean("clipboardCandidateEnabled", enabled) }
+    /** 记录被关闭/消费过的剪贴板内容；传 null 清空。 */
+    fun setClipboardDismissedText(text: String?) = edit { it.putString("clipboardDismissedText", text) }
 
     fun setKeyHeight(dp: Int) = edit { it.putInt("keyHeightDp", dp) }
 
@@ -249,6 +256,7 @@ object IcePrefs {
     fun setFuncKeyBg(argb: Int?) = edit { e -> if (argb == null) e.remove("funcKeyBgArgb") else e.putInt("funcKeyBgArgb", argb) }
 
     fun setKeyText(argb: Int?) = edit { e -> if (argb == null) e.remove("keyTextArgb") else e.putInt("keyTextArgb", argb) }
+    fun setDeepBg(argb: Int?) = edit { e -> if (argb == null) e.remove("deepBgArgb") else e.putInt("deepBgArgb", argb) }
 
     fun setDeployResult(version: Int, ok: Boolean, message: String) = edit {
         it.putInt("deployedAssetVersion", version)

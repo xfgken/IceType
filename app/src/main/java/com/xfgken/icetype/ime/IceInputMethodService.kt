@@ -164,8 +164,10 @@ class IceInputMethodService : InputMethodService() {
     /** 剪贴板候选：候选栏当前显示的剪贴板文本；null 表示不显示。 */
     private var clipboardSuggestionText: String? = null
 
-    /** 被用户点 ✕ 关闭过的剪贴板内容；内容变化前不再自动显示。 */
-    private var clipboardSuggestionDismissed: String? = null
+    /** 被用户点 ✕ 关闭过、或打字让位消费过的剪贴板内容；持久化到 IcePrefs，切换输入法/服务重启后仍记住。 */
+    private var clipboardSuggestionDismissed: String?
+        get() = prefs.clipboardDismissedText
+        set(value) { IcePrefs.setClipboardDismissedText(value) }
 
     /** 最近一次引擎上下文，用于判断那一行该显示候选还是工具栏。 */
     private var lastPreedit: String = ""
@@ -2500,7 +2502,13 @@ class IceInputMethodService : InputMethodService() {
 
     private fun updateCandidatesWith(ctx: RimeEngine.RimeContext) {
         val bar = candidateBar ?: return
-        if (ctx.preedit.isNotEmpty() || ctx.candidates.isNotEmpty()) clearClipboardSuggestion()
+        if (ctx.preedit.isNotEmpty() || ctx.candidates.isNotEmpty()) {
+            // 用户开始打字让剪贴板候选消失：记住这条内容，之后不再自动弹出（剪贴板面板仍保留记录）
+            if (!clipboardSuggestionText.isNullOrEmpty()) {
+                clipboardSuggestionDismissed = clipboardSuggestionText
+            }
+            clearClipboardSuggestion()
+        }
         // 每次刷新先清空重排映射：只有真正重排过的列表才会重新赋值
         candidateOrder = null
         // 一旦有拼音组合串，邮箱候选模式让位给正常拼音输入（候选栏显示拼音候选）
@@ -2559,8 +2567,9 @@ class IceInputMethodService : InputMethodService() {
 
     /** 候选栏被点击：候选模式下选字，联想模式下上屏联想词。 */
     private fun onCandidatePicked(index: Int) {
-        // 点击候选词也要有震动反馈
+        // 点击候选词也要有震动反馈 + 打字音（与 26 字母一致）
         vibrateFeedback()
+        playTypeSound()
         // 邮箱后缀候选：只把「还没打的那一段」补全上屏
         if (emailSuggestions.isNotEmpty()) {
             val pick = emailSuggestions.getOrNull(index) ?: return
@@ -2881,7 +2890,7 @@ class IceInputMethodService : InputMethodService() {
     /** 点剪贴板建议的文字区域：直接把内容上屏到光标处。 */
     private fun commitClipboardSuggestion() {
         val text = clipboardSuggestionText ?: return
-        playToolbarSound()
+        playTypeSound()
         commitToEditor(text)
         clearClipboardSuggestion()
         AppLog.i(AppLog.Category.CLIPBOARD, "剪贴板候选上屏（长度 ${text.length}）")
@@ -3117,6 +3126,8 @@ class IceInputMethodService : InputMethodService() {
 
             KeyAction.HideKeyboard -> {
                 exitEmailMode(block = true)
+                // 收起键盘前若面板（表情/剪贴板/常用语）开着，先关掉，否则下次弹出还是打开状态
+                if (panelVisible) hidePanel()
                 requestHideSelf(0)
             }
             KeyAction.OpenSettings -> openApp("home")
@@ -3694,6 +3705,14 @@ class IceInputMethodService : InputMethodService() {
         }
     }
 
+    /** 候选栏点击（选词 / 剪贴板候选上屏）统一播「打字音」，与 26 字母一致。 */
+    private fun playTypeSound() {
+        val settings = prefs
+        if (!settings.soundEnabled) return
+        val volume = (settings.keySoundVolume / 100f).coerceIn(0f, 1f)
+        if (volume <= 0f) return
+        if (KeySoundPlayer.isReady) KeySoundPlayer.play(KeySoundPlayer.Kind.CLICK, volume)
+    }
     /** 按钮栏按钮（品牌 / 深浅切换 / 中英 / 面板 / 收起键盘）统一播「功能键」音效。 */
     private fun playToolbarSound() {
         val settings = prefs

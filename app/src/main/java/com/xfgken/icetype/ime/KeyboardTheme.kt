@@ -128,19 +128,20 @@ object KeyboardTheme {
         val keyBg = if (glass) {
             withAlpha(glassKeyBase, if (dark) 120 else 150)
         } else {
-            settings.keyBgArgb ?: keyBgDefault
+            (if (!dark) settings.keyBgArgb else null) ?: keyBgDefault
         }
         // 按钮色：保证与键盘底色至少有可感知的色差（动态颜色 / 各类预设都适用）
         val funcKey = if (glass) {
             withAlpha(glassFuncBase, if (dark) 130 else 165)
         } else {
-            settings.funcKeyBgArgb ?: ensureSeparation(funcKeyDefault, keyboardBgDefault, 0.055)
+            (if (!dark) settings.funcKeyBgArgb else null)
+                ?: ensureSeparation(funcKeyDefault, keyboardBgDefault, 0.055)
         }
         val keyText = settings.keyTextArgb ?: textDefault
         val keyboardBg = if (glass) {
             withAlpha(glassBgBase, if (dark) 150 else 168)
         } else {
-            settings.keyboardBgArgb ?: keyboardBgDefault
+            (if (dark) settings.deepBgArgb else settings.keyboardBgArgb) ?: keyboardBgDefault
         }
 
         // —— 玻璃色：完全独立的一套中性配色，不跟随「配色方案 / 强调色 / 自定义颜色」 ——
@@ -406,6 +407,7 @@ object KeyboardTheme {
             outline = p.outline,
             buttonBg = p.funcKeyBg,
             iconTint = p.onSurfaceVariant,
+            highlightBg = (if (!p.isDark) settings.funcKeyBgArgb else null) ?: 0,
             // 候选词高亮背景的圆角跟随「按键圆角」设置（0dp 就变成方角）
             cornerPx = settings.keyCornerDp * density,
             // 按钮栏按钮（含候选栏右侧 ✕）的圆角跟随「按钮栏圆角」设置

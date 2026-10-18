@@ -4,10 +4,26 @@ import android.content.Context
 import android.content.Intent
 import android.widget.Toast
 import androidx.annotation.DrawableRes
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -29,6 +45,12 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.foundation.text.ClickableText
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
@@ -384,12 +406,11 @@ fun ThemeSettingsPage() {
         }
         // 第二个色块就是「透明效果」：它是一套独立的中性玻璃配色，不跟随其它方案
         val glassTones = listOf(
-            0xFF2A2D33.toInt(), 0xFF555963.toInt(), 0xFF8A8F99.toInt(),
-            0xFFC0C5CC.toInt(), 0xFFF1F3F7.toInt(),
+            0xFFF1F3F7.toInt(), 0xFFC0C5CC.toInt(), 0xFF8A8F99.toInt(), 0xFF555963.toInt(),
         )
         val cells = buildList {
             add(ColorSchemePreset("默认（动态颜色）", tonesFrom(dynamicAccent)))
-            add(ColorSchemePreset("透明效果", glassTones))
+            add(ColorSchemePreset("透明效果", glassTones, glass = true))
             addAll(PresetSchemes)
         }
         // 一行两个色块，依次排下去
@@ -401,7 +422,7 @@ fun ThemeSettingsPage() {
                 ) {
                     pair.forEach { preset ->
                         val isDefault = preset.name.startsWith("默认")
-                        val isGlass = preset.name == "透明效果"
+                        val isGlass = preset.glass
                         // 单选：透明效果开启时不看 accent，其它方案选中时 transparent 自动落选
                         val selected = when {
                             isGlass -> settings.glassEnabled
@@ -426,13 +447,16 @@ fun ThemeSettingsPage() {
                                     IcePrefs.setKeyBg(null)
                                     IcePrefs.setFuncKeyBg(null)
                                     IcePrefs.setKeyText(null)
+                                    IcePrefs.setDeepBg(null)
                                     IcePrefs.setDynamicColor(true)
                                 } else {
                                     IcePrefs.setAccent(preset.accent)
-                                    IcePrefs.setKeyboardBg(null)
-                                    IcePrefs.setKeyBg(null)
-                                    IcePrefs.setFuncKeyBg(null)
+                                    IcePrefs.setKeyboardBg(preset.keyboardBg)
+                                    IcePrefs.setKeyBg(preset.keyBg)
+                                    IcePrefs.setFuncKeyBg(preset.chipBg)
                                     IcePrefs.setKeyText(null)
+                                    IcePrefs.setDeepBg(preset.deepBg)
+                                    IcePrefs.setDynamicColor(false)
                                 }
                             }
                             AppLog.i(AppLog.Category.UI, "应用配色方案：${preset.name}")
@@ -453,6 +477,7 @@ fun ThemeSettingsPage() {
                     IcePrefs.setCandidateTextSize(21)
                     IcePrefs.setKeyCorner(12)
                     IcePrefs.setBarCorner(18)
+                    IcePrefs.setKeyboardTopCorner(0)
                     AppLog.i(
                         AppLog.Category.UI,
                         "尺寸与形状已恢复默认：键盘高度 42dp、候选词 21sp、按键圆角 12dp、按钮栏圆角 18dp",
@@ -591,13 +616,39 @@ private fun ThemeModeChip(
  */
 private data class ColorSchemePreset(
     val name: String,
-    val tones: List<Int>,
-) {
-    val accent: Int get() = tones[3]
+    val swatches: List<Int>,
+    val accent: Int? = null,
+    val keyboardBg: Int? = null,
+    val keyBg: Int? = null,
+    val chipBg: Int? = null,
+    val deepBg: Int? = null,
+    val glass: Boolean = false,
+)
+/** 精确配色方案：5 个色块由浅到深（背景 → 浅色 → 主色浅 → 主色 → 深背景）。 */
+private fun preset(
+    name: String,
+    accent: Long,
+    keyboardBg: Long,
+    keyBg: Long,
+    chipBg: Long,
+    deepBg: Long,
+): ColorSchemePreset {
+    val a = accent.toInt()
+    val sw = listOf(
+        keyboardBg.toInt(),
+        chipBg.toInt(),
+        blendColor(a, 0xFFFFFFFF.toInt(), 0.35f),
+        a,
+    )
+    return ColorSchemePreset(
+        name, sw,
+        accent = a,
+        keyboardBg = keyboardBg.toInt(),
+        keyBg = keyBg.toInt(),
+        chipBg = chipBg.toInt(),
+        deepBg = deepBg.toInt(),
+    )
 }
-
-private fun scheme(name: String, vararg tones: Long) =
-    ColorSchemePreset(name, tones.map { it.toInt() })
 
 /** 两个颜色按比例混合（f=0 取 a，f=1 取 b）。 */
 private fun blendColor(a: Int, b: Int, f: Float): Int {
@@ -618,18 +669,17 @@ private fun tonesFrom(accent: Int): List<Int> = listOf(
     blendColor(accent, 0xFFFFFFFF.toInt(), 0.58f),
     blendColor(accent, 0xFFFFFFFF.toInt(), 0.28f),
     accent,
-    blendColor(accent, 0xFF000000.toInt(), 0.35f),
 )
 
 private val PresetSchemes: List<ColorSchemePreset> = listOf(
-    scheme("雾凇蓝", 0xFFF1F8FE, 0xFFBBDDF8, 0xFF42A5F5, 0xFF1976D2, 0xFF0D47A1),
-    scheme("樱花粉", 0xFFFEF3F7, 0xFFF8BBD0, 0xFFEC407A, 0xFFC2185B, 0xFF880E4F),
-    scheme("靛青", 0xFFE8EAF6, 0xFF9FA8DA, 0xFF5C6BC0, 0xFF303F9F, 0xFF1A237E),
-    scheme("石墨灰", 0xFFECEFF1, 0xFFB0BEC5, 0xFF78909C, 0xFF455A64, 0xFF263238),
-    scheme("雪松灰", 0xFFF8FAFB, 0xFFE6EBEF, 0xFFCCD5DD, 0xFFA8B4BE, 0xFF8894A0),
-    scheme("浅雾蓝", 0xFFFBFDFF, 0xFFE9F3FC, 0xFFC6DEF2, 0xFF9DC0DE, 0xFF78A2C2),
-    scheme("藕荷粉", 0xFFFDF9FB, 0xFFF6E6ED, 0xFFEAC6D6, 0xFFD2A2B8, 0xFFB18399),
-    scheme("薄荷青", 0xFFF7FCFA, 0xFFE2F4EE, 0xFFC2E8DC, 0xFF96CEBD, 0xFF6FA795),
+    preset("谷歌蓝", 0xFF4285F4, 0xFFF8F9FA, 0xFFFFFFFF, 0xFFD3E3FD, 0xFF202124),
+    preset("青绿色", 0xFF008577, 0xFFF7FAF9, 0xFFFFFFFF, 0xFFC8E8E0, 0xFF192824),
+    preset("Material紫", 0xFF6750A4, 0xFFFAF9FD, 0xFFFFFFFF, 0xFFE8DEF8, 0xFF211F26),
+    preset("小米橙", 0xFFFF6900, 0xFFFCFAF8, 0xFFFFFFFF, 0xFFFFE0CC, 0xFF24201E),
+    preset("石墨灰", 0xFF5F6368, 0xFFF6F8F8, 0xFFFFFFFF, 0xFFDADCE0, 0xFF202124),
+    preset("靛蓝", 0xFF3949AB, 0xFFF9F9FD, 0xFFFFFFFF, 0xFFDDE1FF, 0xFF1D2030),
+    preset("鼠尾草绿", 0xFF64866D, 0xFFF8FAF8, 0xFFFFFFFF, 0xFFDCE9DB, 0xFF202821),
+    preset("微信绿", 0xFF07C160, 0xFFF7FCF9, 0xFFFFFFFF, 0xFFD5F4E1, 0xFF202B24),
 )
 
 /**
@@ -712,12 +762,12 @@ private fun SchemeCell(
     onClick: () -> Unit,
 ) {
     // 名字压在最浅那一档色带上，所以字色要按它的明度反着来，保证看得清
-    val nameColor = if (isLightArgb(preset.tones.first())) Color(0xFF1D1B20) else Color.White
+    val nameColor = if (isLightArgb(preset.swatches.first())) Color(0xFF1D1B20) else Color.White
     Surface(
         onClick = onClick,
         modifier = modifier,
         shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
-        color = Color(preset.tones.first()),
+        color = Color(preset.swatches.first()),
         border = androidx.compose.foundation.BorderStroke(
             width = if (selected) 2.5.dp else 1.dp,
             color = if (selected) {
@@ -734,7 +784,7 @@ private fun SchemeCell(
         ) {
             // 由浅到深五条竖条铺满整块
             Row(Modifier.fillMaxSize()) {
-                preset.tones.forEach { argb ->
+                preset.swatches.forEach { argb ->
                     Box(
                         modifier = Modifier
                             .weight(1f)
@@ -754,7 +804,16 @@ private fun SchemeCell(
                     .align(Alignment.TopStart)
                     .padding(start = 7.dp, top = 4.dp, end = 18.dp),
             )
-            // 选中的标记只靠外框加粗（不再画对勾）
+            if (selected) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_check),
+                    contentDescription = "已选中",
+                    tint = Color(0xFF1D1B20),
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .size(22.dp),
+                )
+            }
         }
     }
 }
@@ -860,70 +919,145 @@ fun SoundSettingsPage() {
 // ——————————————————————————— 剪贴板 ———————————————————————————
 
 @Composable
-fun EmojiSettingsPage() {
-    var recent by remember { mutableStateOf(EmojiData.recent()) }
-
-    SectionCard("表情管理") {
-        Item {
-            Text(
-                "最近使用（最多保留 36 个）",
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            Text(
-                if (recent.isEmpty()) "暂无记录" else recent.joinToString(" "),
-                style = MaterialTheme.typography.titleLarge,
-            )
-        }
-        Item {
-            OutlinedButton(onClick = {
-                EmojiData.clearRecent()
-                // 立即刷新页面上的「最近使用」（之前用 remember 缓存，清空后界面没更新）
-                recent = EmojiData.recent()
-                AppLog.i(AppLog.Category.UI, "清空表情最近使用")
-            }) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_delete),
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp),
+private fun SegmentedControl(
+    options: List<String>,
+    selected: Int,
+    onSelect: (Int) -> Unit,
+) {
+    BoxWithConstraints(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(androidx.compose.foundation.shape.RoundedCornerShape(24.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+    ) {
+        val pad = 4.dp
+        val itemWidth = (maxWidth - pad * 2) / options.size
+        val indicatorOffset by animateDpAsState(
+            targetValue = pad + itemWidth * selected,
+            animationSpec = tween(300, easing = FastOutSlowInEasing),
+            label = "segIndicator",
+        )
+        // 滑动指示器滑块
+        Box(
+            modifier = Modifier
+                .offset(x = indicatorOffset)
+                .padding(vertical = pad)
+                .width(itemWidth)
+                .height(36.dp)
+                .clip(androidx.compose.foundation.shape.RoundedCornerShape(20.dp))
+                .background(MaterialTheme.colorScheme.primary),
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(pad),
+        ) {
+            options.forEachIndexed { i, label ->
+                val sel = i == selected
+                val textColor by animateColorAsState(
+                    targetValue = if (sel) MaterialTheme.colorScheme.onPrimary
+                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                    animationSpec = tween(260),
+                    label = "segText$i",
                 )
-                Spacer(Modifier.width(6.dp))
-                Text("清空最近使用")
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(36.dp)
+                        .clickable { onSelect(i) },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.labelLarge,
+                        color = textColor,
+                    )
+                }
             }
-        }
-        Item {
-            Text(
-                "表情是输入内容，与系统输入法一致，不提供增删改；" +
-                    "共 ${EmojiData.totalCount()} 个，按分类展示在下方。",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
         }
     }
+}
 
-    // 按分类完整展示（只读）
-    SectionCard("全部分类（${EmojiData.categories.size - 1} 类）") {
-        EmojiData.categories.drop(1).forEach { (name, list) ->
-            Item {
-                Text(
-                    "$name（${list.size}）",
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                Text(
-                    list.chunked(10).joinToString("\n") { it.joinToString(" ") },
-                    style = MaterialTheme.typography.titleLarge,
-                )
+@Composable
+fun EmojiSettingsPage() {
+    var recent by remember { mutableStateOf(EmojiData.recent()) }
+    var tab by remember { mutableStateOf(0) } // 0 = 最近，1 = 全部
+
+    SegmentedControl(
+        options = listOf("最近", "全部"),
+        selected = tab,
+        onSelect = { tab = it },
+    )
+    Spacer(Modifier.height(12.dp))
+
+    AnimatedContent(
+        targetState = tab,
+        transitionSpec = {
+            if (targetState > initialState) {
+                (slideInHorizontally { it / 6 } + fadeIn()) togetherWith
+                    (slideOutHorizontally { -it / 6 } + fadeOut())
+            } else {
+                (slideInHorizontally { -it / 6 } + fadeIn()) togetherWith
+                    (slideOutHorizontally { it / 6 } + fadeOut())
             }
-        }
-        Item {
-            Text(
-                "表情是输入内容，不提供编辑（与系统输入法一致）；" +
-                    "「最近使用」记录在本地，可随时清空。" +
-                    "表情字形由系统字体提供，不同 Android 版本显示会有差异。",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+        },
+        label = "emojiTab",
+    ) { t ->
+        if (t == 0) {
+            SectionCard("最近使用") {
+                Item {
+                    Text(
+                        "最多保留 36 个",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        if (recent.isEmpty()) "暂无记录" else recent.joinToString(" "),
+                        style = MaterialTheme.typography.titleLarge,
+                    )
+                }
+                Item {
+                    OutlinedButton(onClick = {
+                        EmojiData.clearRecent()
+                        recent = EmojiData.recent()
+                        AppLog.i(AppLog.Category.UI, "清空表情最近使用")
+                    }) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_delete),
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text("清空最近使用")
+                    }
+                }
+            }
+        } else {
+            SectionCard("全部（共 ${EmojiData.totalCount()} 个）") {
+                EmojiData.categories.drop(1).forEach { (name, list) ->
+                    Item {
+                        Text(
+                            "$name（${list.size}）",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Text(
+                            list.chunked(10).joinToString("\n") { it.joinToString(" ") },
+                            style = MaterialTheme.typography.titleLarge,
+                        )
+                    }
+                }
+                Item {
+                    Text(
+                        "表情是输入内容，不提供编辑（与系统输入法一致）；" +
+                            "「最近使用」记录在本地，可随时清空。" +
+                            "表情字形由系统字体提供，不同 Android 版本显示会有差异。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
         }
     }
 }
@@ -1087,46 +1221,125 @@ fun PrivacySettingsPage() {
 
 // ——————————————————————————— 关于 ———————————————————————————
 
-/**
- * 项目链接按钮：界面上不出现裸链接，只用图标 + 短语表示；
- * 点击后用系统浏览器打开（离线应用中唯一会离开应用的入口）。
- */
+/** 关于页面的 Markdown 介绍文本。关键项目用 `[文字](链接)` 表示。 */
+private val AboutMarkdown = """
+##项目介绍
+
+IceType（冰霜输入法）是一款完全离线的 Android 中文拼音输入法，内核基于 [librime](https://github.com/rime/librime)，词库与方案采用 [雾凇拼音 rime-ice](https://github.com/iDvel/rime-ice)。
+
+##特别鸣谢
+
+- [librime](https://github.com/rime/librime) — 中州韵输入法引擎
+- [rime-ice](https://github.com/iDvel/rime-ice) — 雾凇拼音方案与词库
+- [Melt_eng](https://github.com/tumuyan/rime-melt) — 英文输入方案
+- Material Symbols / Icons — 界面图标
+- Jetpack Compose & AndroidX — 界面与基础库
+- Kotlin & kotlinx.coroutines — 语言与协程
+""".trimIndent()
+
+/** 渲染 Markdown：支持 `##` 标题、`-` 列表、`[文字](链接)` 行内链接。 */
 @Composable
-private fun LinkIconButton(
-    @DrawableRes iconRes: Int,
-    label: String,
-    url: String,
-) {
+private fun MarkdownView(md: String) {
     val context = LocalContext.current
-    FilledTonalButton(
-        onClick = {
-            runCatching {
-                val intent = Intent(
-                    Intent.ACTION_VIEW,
-                    android.net.Uri.parse(url),
-                ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                context.startActivity(intent)
-                AppLog.i(AppLog.Category.UI, "打开项目链接：$url")
-            }.onFailure {
-                Toast.makeText(context, "没有可用的浏览器打开链接", Toast.LENGTH_SHORT).show()
+    val primary = MaterialTheme.colorScheme.primary
+    val onSurface = MaterialTheme.colorScheme.onSurface
+    val onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        md.lines().forEach { line ->
+            when {
+                line.startsWith("## ") -> {
+                    Text(
+                        line.removePrefix("## "),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = onSurface,
+                    )
+                }
+                line.startsWith("### ") -> {
+                    Text(
+                        line.removePrefix("### "),
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = onSurface,
+                    )
+                }
+                line.startsWith("- ") -> {
+                    Row(verticalAlignment = Alignment.Top) {
+                        Text("•  ", color = onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
+                        MarkdownInlineText(line.removePrefix("- "), primary, onSurface, context)
+                    }
+                }
+                line.isBlank() -> {}
+                else -> MarkdownInlineText(line, primary, onSurface, context)
+            }
+        }
+    }
+}
+
+/** 渲染一行文本，把其中的 `[文字](链接)` 渲染成主题色 + 下划线，可点击跳转浏览器。 */
+@Composable
+private fun MarkdownInlineText(
+    text: String,
+    linkColor: Color,
+    normalColor: Color,
+    context: Context,
+) {
+    val annotated = remember(text) {
+        buildAnnotatedString {
+            val regex = Regex("""\[([^\]]+)]\(([^)]+)\)""")
+            var last = 0
+            for (m in regex.findAll(text)) {
+                append(text.substring(last, m.range.first))
+                val linkText = m.groupValues[1]
+                val url = m.groupValues[2]
+                pushStringAnnotation(tag = "URL", annotation = url)
+                withStyle(
+                    SpanStyle(
+                        color = linkColor,
+                        textDecoration = TextDecoration.Underline,
+                        fontWeight = FontWeight.Medium,
+                    ),
+                ) { append(linkText) }
+                pop()
+                last = m.range.last + 1
+            }
+            append(text.substring(last))
+        }
+    }
+    ClickableText(
+        text = annotated,
+        style = MaterialTheme.typography.bodyMedium.copy(color = normalColor),
+        onClick = { offset ->
+            annotated.getStringAnnotations("URL", offset, offset).firstOrNull()?.let { ann ->
+                runCatching {
+                    context.startActivity(
+                        Intent(Intent.ACTION_VIEW, android.net.Uri.parse(ann.item))
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                    )
+                    AppLog.i(AppLog.Category.UI, "打开链接：" + ann.item)
+                }.onFailure {
+                    Toast.makeText(context, "没有可用的浏览器打开链接", Toast.LENGTH_SHORT).show()
+                }
             }
         },
-        shape = MaterialTheme.shapes.extraLarge,
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
-    ) {
-        Icon(
-            painter = painterResource(iconRes),
-            contentDescription = null,
-            modifier = Modifier.size(20.dp),
+    )
+}
+
+private fun openUrl(context: Context, url: String) {
+    runCatching {
+        context.startActivity(
+            Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url))
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
         )
-        Spacer(Modifier.width(8.dp))
-        Text(label, style = MaterialTheme.typography.labelLarge)
+    }.onFailure {
+        Toast.makeText(context, "没有可用的浏览器打开链接", Toast.LENGTH_SHORT).show()
     }
 }
 
 @Composable
 fun AboutPage() {
-    // 应用信息：不加标题（按用户要求去掉“应用信息”这几个字），卡片本身仍在
+    val context = LocalContext.current
+    // 顶部卡片：logo + 名字 + 方案 + 版本信息（保留）
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
@@ -1152,7 +1365,7 @@ fun AboutPage() {
                         fontWeight = FontWeight.SemiBold,
                     )
                     Text(
-                        text = "IceType · 中州韵引擎（librime）+ 雾凇拼音方案",
+                        text = "中州韵引擎(librime)+雾凇拼音(rime-ice)",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -1161,42 +1374,46 @@ fun AboutPage() {
             InfoRow("作者", "by xfgken")
             InfoRow("版本号", "${BuildConfig.VERSION_NAME}（${BuildConfig.VERSION_CODE}）")
             InfoRow("librime", RimeEngine.engineVersion.ifEmpty { "(未加载)" })
-            InfoRow("运行环境", "完全离线 · minSdk 29 / targetSdk 37")
-        }
-    }
-
-    SectionCard("特别鸣谢") {
-        Item {
-            Text(
-                "本项目的输入内核、词库与图标来自以下开源项目，在此一并致谢。",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        Item { InfoRow("librime", "中州韵输入法引擎（Rime）") }
-        Item { InfoRow("rime-ice", "雾凇拼音：汉语拼音方案与词库") }
-        Item { InfoRow("Melt_eng", "Rime 英文输入方案（Rime 生态）") }
-        Item { InfoRow("Material Symbols / Icons", "界面图标") }
-        Item { InfoRow("Jetpack Compose & AndroidX", "界面与基础库") }
-        Item { InfoRow("Kotlin & kotlinx.coroutines", "语言与协程") }
-        Item { InfoRow("DataStore Preferences", "设置持久化") }
-    }
-
-    SectionCard("项目") {
-        Item {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                // 两个按钮的图标按用户要求互换
-                LinkIconButton(
-                    iconRes = R.drawable.ic_repo,
-                    label = "项目仓库",
-                    url = "https://github.com/xfgken/IceType",
-                )
-                LinkIconButton(
-                    iconRes = R.drawable.ic_github,
-                    label = "个人主页",
-                    url = "https://github.com/xfgken/",
-                )
+                FilledTonalButton(
+                    onClick = { openUrl(context, "https://github.com/xfgken/IceType") },
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_repo),
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text("项目仓库")
+                }
+                FilledTonalButton(
+                    onClick = { openUrl(context, "https://github.com/xfgken/") },
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_github),
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text("个人主页")
+                }
             }
+        }
+    }
+
+    Spacer(Modifier.height(12.dp))
+
+    // 介绍 / 特别鸣谢 / 项目：用 Markdown 渲染，关键项目为主题色带下划线链接
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        ),
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            MarkdownView(AboutMarkdown)
         }
     }
 }

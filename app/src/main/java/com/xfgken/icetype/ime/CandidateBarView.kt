@@ -54,6 +54,8 @@ class CandidateBarView @JvmOverloads constructor(
         val sidePadPx: Float = 0f,
         /** 剪贴板候选左侧图标按钮的图标着色（与按钮栏图标一致）。 */
         val iconTint: Int = Color.LTGRAY,
+        /** 候选词高亮背景色；0 表示用强调色的 26% 透明度（默认行为）。 */
+        val highlightBg: Int = 0,
     )
 
     var style: Style = Style(
@@ -299,7 +301,7 @@ private var scrollOffset = 0f
 
                 if (index == highlighted) {
                     candidatePaint.color = style.accent
-                    pillPaint.color = Color.argb(
+                    pillPaint.color = if (style.highlightBg != 0) style.highlightBg else Color.argb(
                         26,
                         Color.red(style.accent),
                         Color.green(style.accent),
@@ -385,7 +387,7 @@ private var scrollOffset = 0f
         val iconR = style.barCornerPx.coerceIn(0f, iconBtnSize / 2)
         pillPaint.color = style.buttonBg
         canvas.drawRoundRect(iconBtnRect, iconR, iconR, pillPaint)
-        drawIcon(canvas, R.drawable.ic_clipboard, iconBtnRect, style.iconTint, dp(20))
+        drawIcon(canvas, R.drawable.ic_clipboard_copy, iconBtnRect, style.iconTint, dp(20))
         candidatePaint.textSize = if (style.textSizePx > 0f) style.textSizePx else dpF(20)
         candidatePaint.typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
         candidatePaint.color = style.text

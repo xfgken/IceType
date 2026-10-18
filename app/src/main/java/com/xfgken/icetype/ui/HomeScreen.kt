@@ -202,14 +202,14 @@ private fun HeaderSection() {
             painter = painterResource(R.drawable.ic_brand),
             contentDescription = null,
             tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(36.dp),
+            modifier = Modifier.size(44.dp),
         )
         Spacer(Modifier.width(10.dp))
         Column {
             Text(
                 text = stringResource(R.string.app_name),
                 style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.SemiBold,
+                fontWeight = FontWeight.ExtraBold,
                 color = MaterialTheme.colorScheme.onBackground,
             )
             Text(
