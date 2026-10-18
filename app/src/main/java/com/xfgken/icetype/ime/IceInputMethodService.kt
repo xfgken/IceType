@@ -1311,7 +1311,10 @@ class IceInputMethodService : InputMethodService() {
             // 去掉安卓默认的点击涟漪（"按一下泛一下"的那种系统效果）：
             // 这里只用实色圆角底，按下时由旋转/Q 弹动效给出反馈。
             background = shape
-            setOnClickListener { togglePanel(type) }
+            setOnClickListener {
+                playToolbarSound()
+                togglePanel(type)
+            }
             contentDescription = getString(descRes)
             layoutParams = LinearLayout.LayoutParams(dp(36), dp(36)).apply { marginEnd = dp(6) }
         }
@@ -1679,7 +1682,10 @@ class IceInputMethodService : InputMethodService() {
             isClickable = true
             isFocusable = true
             contentDescription = getString(descriptionRes)
-            setOnClickListener { onClick() }
+            setOnClickListener {
+                playToolbarSound()
+                onClick()
+            }
             layoutParams = LinearLayout.LayoutParams(dp(36), dp(36)).apply { marginEnd = dp(6) }
         }
         val normal = android.widget.ImageView(this).apply {
@@ -1891,7 +1897,10 @@ class IceInputMethodService : InputMethodService() {
         val wrapper = android.widget.FrameLayout(this).apply {
             // 与三个面板按钮一致：不要安卓默认的点击涟漪，只保留实色圆角底
             background = shape
-            setOnClickListener { onClick() }
+            setOnClickListener {
+                playToolbarSound()
+                onClick()
+            }
             layoutParams = LinearLayout.LayoutParams(dp(36), dp(36)).apply {
                 marginEnd = dp(6)
             }
@@ -1990,7 +1999,10 @@ class IceInputMethodService : InputMethodService() {
             )
             contentDescription = getString(descriptionRes)
             setPadding(dp(8), dp(8), dp(8), dp(8))
-            setOnClickListener { onClick() }
+            setOnClickListener {
+                playToolbarSound()
+                onClick()
+            }
             layoutParams = LinearLayout.LayoutParams(dp(36), dp(36)).apply {
                 marginEnd = dp(6)
             }
@@ -3392,13 +3404,45 @@ class IceInputMethodService : InputMethodService() {
 
     // —— 反馈 ——
 
+    /**
+     * 按键音分类：
+     *  · 删除键（退格，含长按连删）→ DELETE 音；
+     *  · 功能键（大小写 / 空格 / 回车 / 数字键盘页所有按键 / 数字页的表情与符号键 /
+     *    按钮栏按钮 / 切页与面板类动作）→ ACTION 音；
+     *  · 打字（26 个字母、符号页符号、表情上屏）→ CLICK 音。
+     */
+    private fun keySoundKind(key: KeyDef): KeySoundPlayer.Kind {
+        val onNumbers = layoutType == LayoutType.NUMBERS
+        return when (key.action) {
+            is KeyAction.Backspace -> KeySoundPlayer.Kind.DELETE
+            is KeyAction.Space, is KeyAction.Enter, is KeyAction.Shift ->
+                KeySoundPlayer.Kind.ACTION
+            is KeyAction.SwitchLayout, is KeyAction.OpenPanel, is KeyAction.BackToKeyboard,
+            is KeyAction.HideKeyboard, is KeyAction.OpenSettings,
+            is KeyAction.ToggleChineseEnglish, is KeyAction.SymbolCategory,
+            is KeyAction.PageCandidates, is KeyAction.None ->
+                KeySoundPlayer.Kind.ACTION
+            // 数字键盘页上的数字 / 符号 / 表情键都算功能音
+            else -> if (onNumbers) KeySoundPlayer.Kind.ACTION else KeySoundPlayer.Kind.CLICK
+        }
+    }
+
+    /** 按钮栏按钮（品牌 / 深浅切换 / 中英 / 面板 / 收起键盘）统一播「功能键」音效。 */
+    private fun playToolbarSound() {
+        val settings = prefs
+        if (!settings.soundEnabled) return
+        val volume = (settings.keySoundVolume / 100f).coerceIn(0f, 1f)
+        if (volume <= 0f) return
+        if (KeySoundPlayer.isReady) KeySoundPlayer.play(KeySoundPlayer.Kind.ACTION, volume)
+    }
+
     private fun playFeedback(key: KeyDef) {
         val settings = prefs
         if (settings.soundEnabled) {
-            // 自己合成并播放按键音，音量由「按键音音量」设置直接控制（0 为静音）
+            // 三种内置音效，音量由「按键音音量」设置统一控制（0 为静音）
             val volume = (settings.keySoundVolume / 100f).coerceIn(0f, 1f)
             if (KeySoundPlayer.isReady) {
-                KeySoundPlayer.play(volume)
+                KeySoundPlayer.play(keySoundKind(key), volume)
             } else if (volume > 0f) {
                 // 声音还没加载好时退回系统音效，避免完全没声音
                 runCatching {

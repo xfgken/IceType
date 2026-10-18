@@ -124,8 +124,8 @@ object KeyboardLayouts {
                 KeyDef(label = "123", action = KeyAction.SwitchLayout(LayoutType.NUMBERS), weight = 1.9f, isFunction = true, bold = true),
                 KeyDef(label = "，", action = KeyAction.Rime(RimeEngine.Key.COMMA), weight = 1.4f, isFunction = true, longPress = "。"),
                 // 中英切换已移到按钮栏，这里去掉以腾出空间：空格更宽（自然右移）、回车更大
-                KeyDef(icon = R.drawable.ic_space, action = KeyAction.Space, weight = 4.45f),
-                actionKey(actionLabel, weight = 2.25f),
+                KeyDef(icon = R.drawable.ic_space, action = KeyAction.Space, weight = 4.4778f),
+                actionKey(actionLabel, weight = 2.2222f),
             ),
         ),
     )
@@ -163,8 +163,8 @@ object KeyboardLayouts {
                 KeyDef(label = "123", action = KeyAction.SwitchLayout(LayoutType.NUMBERS), weight = 1.9f, isFunction = true, bold = true),
                 // 英文键盘的逗号必须是**英文逗号**（直接上屏 ","，不走中文标点映射）
                 KeyDef(label = ",", action = KeyAction.Commit(","), weight = 1.4f, isFunction = true, longPress = "."),
-                KeyDef(icon = R.drawable.ic_space, action = KeyAction.Space, weight = 4.45f),
-                actionKey(actionLabel, weight = 2.25f),
+                KeyDef(icon = R.drawable.ic_space, action = KeyAction.Space, weight = 4.4778f),
+                actionKey(actionLabel, weight = 2.2222f),
             ),
         ),
     )
