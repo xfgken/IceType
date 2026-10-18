@@ -31,6 +31,8 @@
     <string name="card_rime">词库与语言</string>
     <string name="card_rime_desc">方案切换、英文候选、学习</string>
     <string name="card_about">关于 IceType</string>
+    <string name="card_usage">使用统计</string>
+    <string name="card_usage_desc">输入量、时长与分类统计</string>
     <string name="card_about_desc">版本、作者与项目主页</string>
 
     <!-- 快捷入口 -->

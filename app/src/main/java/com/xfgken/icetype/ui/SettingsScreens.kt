@@ -49,6 +49,8 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.rememberScrollState
+import com.xfgken.icetype.data.UsageStatsStore
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
@@ -1174,6 +1176,173 @@ fun RimeSettingsPage() {
 }
 
 // ——————————————————————————— 隐私与学习 ———————————————————————————
+
+// ——————————————————————————— 输入统计（仪表盘） ———————————————————————————
+/** 时间筛选范围。 */
+private enum class UsageRange(val label: String) {
+    TODAY("今日"), YESTERDAY("昨日"), D3("近3天"), D7("近7天"), D30("近30天")
+}
+
+private fun formatDuration(ms: Long): String {
+    val totalMin = ms / 60000
+    val h = totalMin / 60
+    val m = totalMin % 60
+    return when {
+        h > 0 -> "${h} 小时 ${m} 分"
+        m > 0 -> "${m} 分钟"
+        else -> "0 分钟"
+    }
+}
+
+@Composable
+private fun StatCell(label: String, value: String, modifier: Modifier = Modifier) {
+    Column(modifier) {
+        Text(
+            text = value,
+            style = MaterialTheme.typography.titleLarge,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        Spacer(Modifier.height(2.dp))
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+fun UsageStatsPage() {
+    val context = LocalContext.current
+    var range by remember { mutableStateOf(UsageRange.TODAY) }
+    UsageStatsStore.init(context)
+    val stats = remember(range) {
+        when (range) {
+            UsageRange.TODAY -> UsageStatsStore.querySince(1)
+            UsageRange.YESTERDAY -> UsageStatsStore.queryYesterday()
+            UsageRange.D3 -> UsageStatsStore.querySince(3)
+            UsageRange.D7 -> UsageStatsStore.querySince(7)
+            UsageRange.D30 -> UsageStatsStore.querySince(30)
+        }
+    }
+    val allStats = remember { UsageStatsStore.queryAll() }
+    val startDate = remember { UsageStatsStore.startDate() }
+
+    // 时间范围选择（放最上面）
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        ),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(10.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            UsageRange.entries.forEach { r ->
+                val sel = r == range
+                Surface(
+                    onClick = { range = r },
+                    modifier = Modifier.weight(1f),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(999.dp),
+                    color = if (sel) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.surfaceContainerHigh
+                    },
+                ) {
+                    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        Text(
+                            text = r.label,
+                            modifier = Modifier.padding(vertical = 8.dp),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = if (sel) {
+                                MaterialTheme.colorScheme.onPrimary
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    SectionCard("累计输入总量") {
+        Item {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(
+                    text = stats.total.toString(),
+                    style = MaterialTheme.typography.displayMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    text = range.label,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+
+    SectionCard("分类统计") {
+        Item {
+            Row(Modifier.fillMaxWidth()) {
+                StatCell("中文字符", stats.cn.toString(), Modifier.weight(1f))
+                StatCell("纯符号", stats.symbol.toString(), Modifier.weight(1f))
+            }
+        }
+        Item {
+            Row(Modifier.fillMaxWidth()) {
+                StatCell("表情", stats.emoji.toString(), Modifier.weight(1f))
+                StatCell("英文字母", stats.en.toString(), Modifier.weight(1f))
+            }
+        }
+        Item {
+            Row(Modifier.fillMaxWidth()) {
+                StatCell("数字", stats.digit.toString(), Modifier.weight(1f))
+                StatCell("键盘使用时长", formatDuration(stats.durationMs), Modifier.weight(1f))
+            }
+        }
+    }
+
+    SectionCard("历史累计") {
+        Item {
+            StatCell("累计输入总量", allStats.total.toString(), Modifier.fillMaxWidth())
+        }
+        Item {
+            Row(Modifier.fillMaxWidth()) {
+                StatCell("中文字符", allStats.cn.toString(), Modifier.weight(1f))
+                StatCell("纯符号", allStats.symbol.toString(), Modifier.weight(1f))
+            }
+        }
+        Item {
+            Row(Modifier.fillMaxWidth()) {
+                StatCell("表情", allStats.emoji.toString(), Modifier.weight(1f))
+                StatCell("英文字母", allStats.en.toString(), Modifier.weight(1f))
+            }
+        }
+        Item {
+            Row(Modifier.fillMaxWidth()) {
+                StatCell("数字", allStats.digit.toString(), Modifier.weight(1f))
+                StatCell("键盘使用时长", formatDuration(allStats.durationMs), Modifier.weight(1f))
+            }
+        }
+        Item {
+            Text(
+                text = "统计起始日期：${startDate ?: "—"}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
 
 @Composable
 fun PrivacySettingsPage() {

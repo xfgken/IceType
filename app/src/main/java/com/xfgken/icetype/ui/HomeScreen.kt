@@ -55,7 +55,7 @@ import com.xfgken.icetype.ime.ImeStatus
 
 /** 设置子页面标识。 */
 enum class SettingsPage {
-    KEYBOARD, THEME, SOUND, CLIPBOARD, PHRASE, EMOJI, RIME, PRIVACY, ABOUT, LOGS
+    KEYBOARD, THEME, SOUND, CLIPBOARD, PHRASE, EMOJI, RIME, PRIVACY, ABOUT, LOGS, USAGE
 }
 
 /**
@@ -167,6 +167,9 @@ fun HomeScreen(
 
             Spacer(Modifier.height(16.dp))
             GroupTitle("其它")
+            SettingsEntry(R.drawable.ic_usage, R.string.card_usage, R.string.card_usage_desc) {
+                onNavigate(SettingsPage.USAGE)
+            }
             SettingsEntry(R.drawable.ic_info, R.string.card_about, R.string.card_about_desc) {
                 onNavigate(SettingsPage.ABOUT)
             }

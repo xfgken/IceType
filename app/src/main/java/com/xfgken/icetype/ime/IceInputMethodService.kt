@@ -35,6 +35,7 @@ import com.xfgken.icetype.data.PhraseStore
 import com.xfgken.icetype.data.PinyinOrder
 import com.xfgken.icetype.data.PredictLexicon
 import com.xfgken.icetype.data.SymbolHistory
+import com.xfgken.icetype.data.UsageStatsStore
 import com.xfgken.icetype.rime.RimeEngine
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -171,6 +172,8 @@ class IceInputMethodService : InputMethodService() {
 
     /** 最近一次引擎上下文，用于判断那一行该显示候选还是工具栏。 */
     private var lastPreedit: String = ""
+    /** 键盘在屏时刻（用于累计键盘使用时长）；0 表示当前不在屏。 */
+    private var keyboardVisibleAt: Long = 0L
 
     /**
      * 光标在「正在输入的拼音」内部的偏移（由 [onUpdateSelection] 维护）。
@@ -191,6 +194,7 @@ class IceInputMethodService : InputMethodService() {
         PhraseStore.init(applicationContext)
         EmojiData.init(applicationContext)
         SymbolHistory.init(applicationContext)
+        UsageStatsStore.init(applicationContext)
         // 按键音播放器（自己合成的声音，可调音量）
         KeySoundPlayer.init(applicationContext)
         // 每次复制都记录进历史（不能只在打开面板时读一次，否则只留最后一条）
@@ -2720,6 +2724,8 @@ class IceInputMethodService : InputMethodService() {
         super.onStartInputView(info, restarting)
         // 系统把本输入法显示出来了 —— 记录「此刻在屏」，供状态卡片判定「已选择」
         IcePrefs.setImeShown(true)
+        // 输入统计：键盘在屏，开始累计使用时长
+        if (keyboardVisibleAt == 0L) keyboardVisibleAt = SystemClock.uptimeMillis()
         // 每次弹出都重新套用主题与尺寸：用户在设置里改完外观后，第一次弹出就是新外观
         applyTheme()
         applyLayout()
@@ -2741,6 +2747,16 @@ class IceInputMethodService : InputMethodService() {
     override fun onFinishInputView(finishingInput: Boolean) {
         // 键盘离开屏幕：切换输入法 / 收起键盘都会走到这里
         IcePrefs.setImeShown(false)
+        // 剪贴板候选：键盘离开屏幕（切输入法 / 收起 / 切走）时，把当前展示的内容记为已消费，
+        // 下次再弹出键盘不再重复显示这条（剪贴板面板历史仍保留，只有复制新内容才重新弹）
+        if (!clipboardSuggestionText.isNullOrEmpty()) {
+            clipboardSuggestionDismissed = clipboardSuggestionText
+        }
+        // 输入统计：结算这一段键盘使用时长（键盘隐藏 / 切输入法即暂停计时）
+        if (keyboardVisibleAt != 0L) {
+            UsageStatsStore.addDuration(SystemClock.uptimeMillis() - keyboardVisibleAt)
+            keyboardVisibleAt = 0L
+        }
         // 结束输入前把未上屏的组合串提交，避免用户已输入的内容丢失
         if (session != 0L) {
             RimeEngine.commitComposition(session)
@@ -3646,6 +3662,8 @@ class IceInputMethodService : InputMethodService() {
         ic.commitText(text, 1)
         lastTextCommitAt = SystemClock.uptimeMillis()
         // 组合状态下的学习：由 Rime 自身完成；这里不再记录任何输入文本
+        // 输入统计：分类累计上屏字符（空格/换行不计入，见 UsageStatsStore）
+        UsageStatsStore.recordText(text)
     }
 
     /**

@@ -158,6 +158,7 @@ fun IceTypeApp(
                             SettingsPage.PRIVACY -> PrivacySettingsPage()
                             SettingsPage.ABOUT -> AboutPage()
                             SettingsPage.LOGS -> LogPage()
+                            SettingsPage.USAGE -> UsageStatsPage()
                         }
                     }
                 }
@@ -178,4 +179,5 @@ private fun titleOf(page: SettingsPage): String = when (page) {
     SettingsPage.PRIVACY -> "隐私与学习"
     SettingsPage.ABOUT -> "关于 IceType"
     SettingsPage.LOGS -> "诊断日志"
+    SettingsPage.USAGE -> "使用统计"
 }
