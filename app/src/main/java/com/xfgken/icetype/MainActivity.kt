@@ -39,6 +39,9 @@ class MainActivity : ComponentActivity() {
 
     private var scrollBottom = false
 
+    // 系统点击音（手机「触摸提示音」）保持系统默认行为：这里不做任何静音处理，
+    // 设置页的点击就照常响系统那一声。
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()

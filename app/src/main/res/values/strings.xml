@@ -57,6 +57,7 @@
     <string name="kbd_symbol">符号</string>
     <string name="kbd_number">数字</string>
     <string name="kbd_letter">字母</string>
+    <string name="kbd_symbols_entry">符号键盘</string>
     <string name="kbd_emoji">表情</string>
     <string name="kbd_clipboard">剪贴板</string>
     <string name="kbd_settings">设置</string>

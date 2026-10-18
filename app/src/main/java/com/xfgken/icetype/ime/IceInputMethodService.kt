@@ -80,6 +80,17 @@ class IceInputMethodService : InputMethodService() {
     private val NUMBER_LEFT_SYMBOLS = setOf("@", "%", "-", "−")
 
     private var lettersBeforeNumbers = LayoutType.CHINESE_PINYIN
+
+    /** 进符号键盘前是哪套字母键盘（点 ✕ 时回到它，而不是硬回中文）。 */
+    private var lettersBeforeSymbols = LayoutType.CHINESE_PINYIN
+
+    /** 符号入口按钮内部的「服务号图标 / ✕」两副图标。 */
+    private var symbolBtnIconNormal: android.widget.ImageView? = null
+    private var symbolBtnIconClose: android.widget.ImageView? = null
+    private var symbolBtnWrapper: View? = null
+
+    /** 上一次的符号按钮形态（true = 正在显示 ✕），用于只在该变的时候播动画。 */
+    private var symbolBtnActive: Boolean? = null
     private var symbolCategory = 0
     private var panelVisible = false
 
@@ -1037,7 +1048,8 @@ class IceInputMethodService : InputMethodService() {
 
         val container = EggRootLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(palette.keyboardBg)
+            // 整个键盘的左上 / 右上圆角（可在「主题外观」里调节，像 iPhone 键盘那样）
+            applyKeyboardTopCorners(this, palette.keyboardBg)
             // 点击火花特效的开关：只在彩蛋开启时才有（关闭时等于不生效）
             effectEnabled = { eggRunning }
             // 记下来：彩蛋期间点击产生的彩色小球火花，画在这个容器最上层
@@ -1075,12 +1087,14 @@ class IceInputMethodService : InputMethodService() {
             onPage = { next -> handlePage(next) }
             // 联想态右侧的 ✕：结束联想并恢复工具栏
             onDismiss = {
+                playToolbarSound()
                 predictionWords = emptyList()
                 AppLog.i(AppLog.Category.UI, "用户关闭联想")
                 updateCandidates()
             }
             // 候选态右侧的 ✕：清空当前正在输入的拼音 / 关闭邮箱候选 / 关闭英文候选
             onClear = {
+                playToolbarSound()
                 val hadEmail = emailSuggestions.isNotEmpty()
                 // 邮箱候选：关闭就是**退出邮箱模式**，并且这个 @ 不再自动重开
                 // （不再只是把 UI 藏起来，下一帧也不会又被算出来）
@@ -1280,6 +1294,9 @@ class IceInputMethodService : InputMethodService() {
         langToolButton {
             toggleChineseEnglish()
         }.also { bar.addView(it) }
+        // 「服务号」图标按钮：字母页显示服务号图标（点它进符号键盘），
+        // 进符号页后变成 ✕（点它回 26 字母键盘），位置在中英切换与表情之间。
+        bar.addView(symbolToolButton())
         bar.addView(panelToolButton(PanelType.EMOJI, R.drawable.ic_emoji, R.string.kbd_emoji))
         bar.addView(panelToolButton(PanelType.CLIPBOARD, R.drawable.ic_clipboard, R.string.kbd_clipboard))
         bar.addView(panelToolButton(PanelType.PHRASE, R.drawable.ic_phrase, R.string.kbd_phrase))
@@ -1289,6 +1306,7 @@ class IceInputMethodService : InputMethodService() {
         })
         // 工具栏重建后，按当前状态恢复按钮图标（若面板正展开则显示 ✕）
         updatePanelButtonStates()
+        updateSymbolButtonState()
         // 工具栏重建会换掉所有按钮（旧按钮上的旋转动画随之消失）——
         // 彩蛋开着的时候必须把旋转重新挂上，否则"看过别的页面后按钮栏就不转了"。
         if (eggRunning) startToolbarEgg()
@@ -1310,6 +1328,8 @@ class IceInputMethodService : InputMethodService() {
         val wrapper = android.widget.FrameLayout(this).apply {
             // 去掉安卓默认的点击涟漪（"按一下泛一下"的那种系统效果）：
             // 这里只用实色圆角底，按下时由旋转/Q 弹动效给出反馈。
+            // 系统触摸提示音也关掉：只播我们自己的按键音，不然一声变两声。
+            isSoundEffectsEnabled = false
             background = shape
             setOnClickListener {
                 playToolbarSound()
@@ -1359,6 +1379,105 @@ class IceInputMethodService : InputMethodService() {
      * 旧内容逆时针转 90° 并淡出；新内容从另一侧逆时针转回 0° 并淡入。
      * 只转传进来的这两个 View —— 外框（实色底）保持不动。
      */
+    /**
+     * 符号入口按钮（中英切换与表情之间）。
+     * 结构与面板按钮 / 中英切换按钮完全一致：外框（实色圆角底）固定不动，
+     * 只在两副图标（服务号图标 / ✕）之间做「逆时针旋转 + Q 弹」切换，
+     * 手感与旁边按钮一模一样。图标比其它按钮的 24dp 略小一号（18dp）。
+     */
+    private fun symbolToolButton(): View {
+        val palette = KeyboardTheme.palette(this)
+        val density = resources.displayMetrics.density
+        val half = 18f * density
+        val radius = (prefs.barCornerDp * density).coerceIn(0f, half)
+        val shape = android.graphics.drawable.GradientDrawable().apply {
+            setColor(palette.funcKeyBg)
+            cornerRadius = radius
+        }
+        val wrapper = android.widget.FrameLayout(this).apply {
+            // 与旁边按钮一致：无系统涟漪、无系统触摸提示音（只播自带的按钮栏音效）
+            isSoundEffectsEnabled = false
+            background = shape
+            contentDescription = getString(R.string.kbd_symbols_entry)
+            setOnClickListener {
+                playToolbarSound()
+                // 面板（剪贴板 / 常用语 / 表情）开着的时候点它，先把面板关掉，
+                // 否则面板会把键盘盖住，旁边的面板按钮也一直挂着 ✕。
+                if (panelVisible) hidePanel()
+                if (layoutType == LayoutType.SYMBOLS) {
+                    // 叉：回到 26 个字母键盘（回到进符号页之前的那套中/英键盘）
+                    exitEmailMode(block = true)
+                    layoutType = lettersBeforeSymbols
+                    shiftActive = false
+                    applyLayout()
+                    AppLog.i(AppLog.Category.UI, "按钮栏退出符号键盘")
+                } else {
+                    lettersBeforeSymbols = layoutType
+                    exitEmailMode(block = true)
+                    layoutType = LayoutType.SYMBOLS
+                    shiftActive = false
+                    applyLayout()
+                    AppLog.i(AppLog.Category.UI, "按钮栏进入符号键盘")
+                }
+            }
+            layoutParams = LinearLayout.LayoutParams(dp(36), dp(36)).apply { marginEnd = dp(6) }
+        }
+        // 图标 18dp（其它按钮是 24dp / 内边距 8dp），比自己上一版再小一圈
+        val side = dp(18)
+        val iconParams = android.widget.FrameLayout.LayoutParams(side, side).apply {
+            gravity = Gravity.CENTER
+        }
+        val iconNormal = android.widget.ImageView(this).apply {
+            setImageResource(R.drawable.ic_service_account)
+            setColorFilter(palette.onSurfaceVariant)
+            scaleType = android.widget.ImageView.ScaleType.FIT_CENTER
+        }
+        val iconClose = android.widget.ImageView(this).apply {
+            setImageResource(R.drawable.ic_close)
+            setColorFilter(PANEL_CROSS_COLOR)
+            // 与面板按钮的 ✕ 一模一样：CENTER 保持 24dp 原尺寸，
+            // 不会被 FIT_CENTER 撑满 36dp 按钮（那才会显得大）
+            scaleType = android.widget.ImageView.ScaleType.CENTER
+            visibility = View.GONE
+        }
+        wrapper.addView(iconNormal, iconParams)
+        // ✕ 与其它按钮栏按钮的 ✕ 一样大（铺满 36dp 按钮，图标本身 24dp 居中），
+        // 只有「服务号」图标是缩小版
+        wrapper.addView(
+            iconClose,
+            android.widget.FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT,
+            ),
+        )
+        symbolBtnWrapper = wrapper
+        symbolBtnIconNormal = iconNormal
+        symbolBtnIconClose = iconClose
+        symbolBtnActive = null
+        return wrapper
+    }
+
+    /** 同步符号入口按钮形态：符号页显示 ✕，其余页显示服务号图标（首次不动画）。 */
+    private fun updateSymbolButtonState() {
+        val normal = symbolBtnIconNormal ?: return
+        val close = symbolBtnIconClose ?: return
+        val active = layoutType == LayoutType.SYMBOLS
+        val previous = symbolBtnActive
+        if (previous == null || previous == active) {
+            normal.visibility = if (active) View.GONE else View.VISIBLE
+            close.visibility = if (active) View.VISIBLE else View.GONE
+            listOf(normal, close).forEach {
+                it.rotation = 0f
+                it.alpha = 1f
+            }
+        } else if (active) {
+            switchIconViews(normal, close, bouncy = true)
+        } else {
+            switchIconViews(close, normal, bouncy = true)
+        }
+        symbolBtnActive = active
+    }
+
     private fun switchIconViews(outgoing: View, incoming: View, bouncy: Boolean = false) {
         val duration = 170L
         outgoing.animate()
@@ -1681,6 +1800,8 @@ class IceInputMethodService : InputMethodService() {
             )
             isClickable = true
             isFocusable = true
+            // 只用我们自己的按键音：关掉系统触摸提示音，否则点一下会响两声
+            isSoundEffectsEnabled = false
             contentDescription = getString(descriptionRes)
             setOnClickListener {
                 playToolbarSound()
@@ -1896,6 +2017,7 @@ class IceInputMethodService : InputMethodService() {
         }
         val wrapper = android.widget.FrameLayout(this).apply {
             // 与三个面板按钮一致：不要安卓默认的点击涟漪，只保留实色圆角底
+            isSoundEffectsEnabled = false
             background = shape
             setOnClickListener {
                 playToolbarSound()
@@ -1998,6 +2120,7 @@ class IceInputMethodService : InputMethodService() {
                 shape,
             )
             contentDescription = getString(descriptionRes)
+            isSoundEffectsEnabled = false
             setPadding(dp(8), dp(8), dp(8), dp(8))
             setOnClickListener {
                 playToolbarSound()
@@ -2026,6 +2149,45 @@ class IceInputMethodService : InputMethodService() {
     }
 
     private fun dp(v: Int): Int = (v * resources.displayMetrics.density).toInt()
+
+    /**
+     * 键盘左上角 / 右上角圆角。
+     *
+     * 只给上面两个角倒角（下面两角是方角），并且用 `clipToOutline` 把**整块键盘的内容
+     * 一起裁掉**——候选栏、按钮栏、按键都不再画到圆角外面，所以看起来就是真正的圆角，
+     * 而不是「底色圆角、上面的东西还是方角」。
+     */
+    @Suppress("DEPRECATION") // setConvexPath 在 API 35 起标记废弃，但目前仍是唯一支持「只有上面两角倒角」的裁剪方式
+    private fun applyKeyboardTopCorners(view: android.view.View, color: Int) {
+        val r = (prefs.keyboardTopCornerDp.coerceIn(0, 20) * resources.displayMetrics.density)
+        fun radii(): FloatArray = floatArrayOf(r, r, r, r, 0f, 0f, 0f, 0f)
+        view.background = android.graphics.drawable.GradientDrawable().apply {
+            setColor(color)
+            cornerRadii = radii()
+        }
+        view.outlineProvider = object : android.view.ViewOutlineProvider() {
+            override fun getOutline(v: android.view.View, outline: android.graphics.Outline) {
+                if (r <= 0f) {
+                    outline.setRect(0, 0, v.width, v.height)
+                    return
+                }
+                val path = android.graphics.Path()
+                path.addRoundRect(
+                    0f,
+                    0f,
+                    v.width.toFloat(),
+                    v.height.toFloat(),
+                    radii(),
+                    android.graphics.Path.Direction.CW,
+                )
+                runCatching { outline.setConvexPath(path) }.onFailure {
+                    outline.setRect(0, 0, v.width, v.height)
+                }
+            }
+        }
+        view.clipToOutline = r > 0f
+        view.invalidateOutline()
+    }
 
     /**
      * 系统导航栏高度（像素），同步从系统资源读取。
@@ -2081,7 +2243,7 @@ class IceInputMethodService : InputMethodService() {
         }
         // 悬浮卡片底色用的就是这个值：必须跟着主题刷新，否则深色模式下卡片还是浅色
         keyboardBgColor = palette.keyboardBg
-        root?.setBackgroundColor(palette.keyboardBg)
+        root?.let { applyKeyboardTopCorners(it, palette.keyboardBg) }
         // 顶部把手也重新上色
         dragHandle?.let { styleDragHandle(it) }
         // 正在悬浮的话，把卡片底色立刻换掉
@@ -2150,6 +2312,8 @@ class IceInputMethodService : InputMethodService() {
             LayoutType.NUMBERS -> KeyboardLayouts.numbers(label)
         }
         kv.setRows(rows)
+        // 换布局后同步「符号入口 / ✕」的形态（与面板按钮同一套旋转 + Q 弹动画）
+        updateSymbolButtonState()
         kv.style = KeyboardTheme.keyboardStyle(this)
         // 盲打模式：隐藏 26 个字母键上的字母
         kv.hideLetterLabels = prefs.blindTyping
@@ -2611,6 +2775,14 @@ class IceInputMethodService : InputMethodService() {
 
     private fun showPanel(type: PanelType) {
         if (type == PanelType.CLIPBOARD && !prefs.clipboardPanelEnabled) return
+        // 打开面板前先退出符号键盘页：否则符号入口按钮会一直挂着 ✕，
+        // 看着像「点别的按钮它也还在叉」，也容易误点到 ✕
+        if (layoutType == LayoutType.SYMBOLS) {
+            layoutType = lettersBeforeSymbols
+            shiftActive = false
+            applyLayout()
+            AppLog.i(AppLog.Category.UI, "打开面板前退出符号键盘")
+        }
         if (type == PanelType.PHRASE && !prefs.phraseEnabled) return
         if (type == PanelType.EMOJI && !prefs.emojiEnabled) return
         // 打开剪贴板面板时，先记录当前系统剪贴板内容（仅在用户主动操作且开关打开时）
@@ -2835,6 +3007,11 @@ class IceInputMethodService : InputMethodService() {
             }
 
             is KeyAction.SwitchLayout -> {
+                // 已经在目标键盘上时不再重复切一次（重复切会造成一次多余的闪动）
+                if (action.target == layoutType) {
+                    AppLog.i(AppLog.Category.UI, "已在目标键盘，跳过重复切换")
+                    return
+                }
                 // 切键盘布局 = 换输入场景：邮箱候选状态作废（不再残留）
                 exitEmailMode(block = true)
                 // 进数字键盘前记下原来是中/英，点完符号好回到那个键盘

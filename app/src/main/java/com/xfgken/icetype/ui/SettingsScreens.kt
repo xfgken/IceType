@@ -46,6 +46,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -480,6 +481,15 @@ fun ThemeSettingsPage() {
             )
         }
         Item {
+            SliderRow(
+                title = "键盘上角圆角",
+                value = settings.keyboardTopCornerDp,
+                range = 0..20,
+                valueLabel = { "$it dp" },
+                onChange = { IcePrefs.setKeyboardTopCorner(it) },
+            )
+        }
+        Item {
             Text(
                 "Material 3 官方形状令牌参考：Small 8dp / Medium 12dp（默认）/ Large 16dp / ExtraLarge 28dp；" +
                     "按钮栏按钮为 36dp，圆角取 18dp 时正好是正圆。",
@@ -610,25 +620,52 @@ private fun KeyboardLivePreviewCard() {
     val context = LocalContext.current
     // 键盘整块（顶行 + 键盘区）统一用键盘底色铺底，避免出现白色缝隙/空白
     val keyboardBg = Color(KeyboardTheme.palette(context).keyboardBg)
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-        ),
-    ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
+    // 预览里键盘自己的「键盘上角圆角」，必须跟随设置实时变化
+    val previewTopCorner = rememberSettings().keyboardTopCornerDp.dp
+    Column(modifier = Modifier.fillMaxWidth()) {
+        // 这一块的标题：实时预览
+        Text(
+            text = "实时预览",
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        Spacer(Modifier.height(8.dp))
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            // 顶部两角保持方角：卡片原来的 20dp 圆角会把预览顶部裁成固定圆角，
+            // 那样「键盘上角圆角」这个设置就看不出效果了。
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(
+                topStart = 0.dp,
+                topEnd = 0.dp,
+                bottomEnd = 20.dp,
+                bottomStart = 20.dp,
+            ),
+            // 容器色必须与页面背景一致：键盘顶部圆角裁掉后露出的两个小角就是这层颜色，
+            // 用 surfaceContainerLow 会露出比页面偏浅的一块，看着像“多出来的小角”。
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.background,
+            ),
+        ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
             // 预览区上下不留任何内边距：键盘底色直接顶到卡片边缘，
             // 否则按钮栏上方会出现一条卡片底色的空白（与真实键盘不一致）。
             // 完整键盘（按钮栏/候选栏 + 5 行按键）都在卡片内按可用宽度铺满：
             // 之前为了和真实键盘「同宽」用了负偏移 + 整屏宽度，导致左侧被父级裁掉一半，
             // 现在改为卡片内满宽 —— 按键是权重布局，比例与真实键盘完全一致。
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(keyboardBg),
-            ) {
-                InAppKeyboardTest()
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        // 按「键盘上角圆角」设置裁剪：预览顶部两角跟着滑块实时变化
+                        .clip(
+                            androidx.compose.foundation.shape.RoundedCornerShape(
+                                topStart = previewTopCorner,
+                                topEnd = previewTopCorner,
+                            ),
+                        )
+                        .background(keyboardBg),
+                ) {
+                    InAppKeyboardTest()
+                }
             }
         }
     }

@@ -33,6 +33,8 @@ object IcePrefs {
         val keyCornerDp: Int = 12, // M3 ShapeTokens.CornerMedium
         /** 按钮栏（工具栏 / 候选栏 ✕）按钮的圆角；与键盘按键分开调节，默认 18dp（正好是正圆）。 */
         val barCornerDp: Int = 18,
+        /** 整个键盘的左上角 / 右上角圆角（像 iPhone 键盘那种）；0 = 方角（默认），最大 20。 */
+        val keyboardTopCornerDp: Int = 0,
         /** 候选词字号（sp），默认 21。 */
         val candidateTextSp: Int = 21,
         val autoCapitalize: Boolean = false,
@@ -125,6 +127,7 @@ object IcePrefs {
             keyGapDp = sp.getInt("keyGapDp", d.keyGapDp),
             keyCornerDp = sp.getInt("keyCornerDp", d.keyCornerDp),
             barCornerDp = sp.getInt("barCornerDp", d.barCornerDp),
+            keyboardTopCornerDp = sp.getInt("keyboardTopCornerDp", d.keyboardTopCornerDp),
             candidateTextSp = sp.getInt("candidateTextSp", d.candidateTextSp),
             autoCapitalize = sp.getBoolean("autoCapitalize", d.autoCapitalize),
             enterKeyForNewline = sp.getBoolean("enterKeyForNewline", d.enterKeyForNewline),
@@ -184,6 +187,9 @@ object IcePrefs {
 
     /** 按钮栏按钮圆角（dp）。 */
     fun setBarCorner(dp: Int) = edit { it.putInt("barCornerDp", dp) }
+
+    /** 键盘左上 / 右上圆角。 */
+    fun setKeyboardTopCorner(dp: Int) = edit { it.putInt("keyboardTopCornerDp", dp) }
 
     fun setKeyHeight(dp: Int) = edit { it.putInt("keyHeightDp", dp) }
 
