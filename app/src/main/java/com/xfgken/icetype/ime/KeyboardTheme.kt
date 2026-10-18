@@ -50,6 +50,12 @@ object KeyboardTheme {
         val cardOutline: Int,
         /** 对话框容器色：对应 M3 `surfaceContainerHigh`。 */
         val dialogContainer: Int,
+        /** 是否玻璃效果（每颗按键都有玻璃描边 + 顶部高光）。 */
+        val glass: Boolean = false,
+        /** 玻璃：按键外描边色。 */
+        val glassStroke: Int = 0x40FFFFFF,
+        /** 玻璃：按键顶部高光色（只画上半圈）。 */
+        val glassHighlight: Int = 0x66FFFFFF,
     )
 
     // —— 配色方案 ——
@@ -112,12 +118,67 @@ object KeyboardTheme {
         val textDefault = scheme.onSurface.toArgb()
 
         val accent = settings.accentArgb ?: accentDefault
-        val keyBg = settings.keyBgArgb ?: keyBgDefault
+        // —— 玻璃效果（iOS 风格）——
+        // 键盘底色 / 按键底色 / 功能键改成半透明，配合输入法窗口的背景模糊（FLAG_BLUR_BEHIND）
+        // 就能透出后面应用的模糊内容，得到磨砂玻璃质感。
+        val glass = settings.glassEnabled
+        val glassBgBase = if (dark) 0xFF0E1013.toInt() else 0xFFF4F6F9.toInt()
+        val glassKeyBase = if (dark) 0xFF3C4048.toInt() else 0xFFFFFFFF.toInt()
+        val glassFuncBase = if (dark) 0xFF555A63.toInt() else 0xFFE7EBF0.toInt()
+        val keyBg = if (glass) {
+            withAlpha(glassKeyBase, if (dark) 120 else 150)
+        } else {
+            settings.keyBgArgb ?: keyBgDefault
+        }
         // 按钮色：保证与键盘底色至少有可感知的色差（动态颜色 / 各类预设都适用）
-        val funcKey = settings.funcKeyBgArgb
-            ?: ensureSeparation(funcKeyDefault, keyboardBgDefault, 0.055)
+        val funcKey = if (glass) {
+            withAlpha(glassFuncBase, if (dark) 130 else 165)
+        } else {
+            settings.funcKeyBgArgb ?: ensureSeparation(funcKeyDefault, keyboardBgDefault, 0.055)
+        }
         val keyText = settings.keyTextArgb ?: textDefault
-        val keyboardBg = settings.keyboardBgArgb ?: keyboardBgDefault
+        val keyboardBg = if (glass) {
+            withAlpha(glassBgBase, if (dark) 150 else 168)
+        } else {
+            settings.keyboardBgArgb ?: keyboardBgDefault
+        }
+
+        // —— 玻璃色：完全独立的一套中性配色，不跟随「配色方案 / 强调色 / 自定义颜色」 ——
+        // 半透明的冷白 / 深灰底 + 白色描边高光，这才是 iOS 那种玻璃按钮的观感。
+        if (glass) {
+            val gBg = withAlpha(if (dark) 0xFF15171C.toInt() else 0xFFF1F3F7.toInt(), if (dark) 170 else 178)
+            val gKey = withAlpha(if (dark) 0xFF31343C.toInt() else 0xFFFFFFFF.toInt(), if (dark) 150 else 158)
+            // 玻璃模式下所有按钮统一用字母键的颜色（功能键 / 数字键 / 回车 / 按钮栏都不再另设色）
+            val gFunc = gKey
+            val gText = if (dark) 0xFFEDEFF3.toInt() else 0xFF23262B.toInt()
+            val gAccent = if (dark) 0xFFDDE1E8.toInt() else 0xFF3A3D44.toInt()
+            val gOutline = if (dark) 0x33FFFFFF.toInt() else 0x40FFFFFF.toInt()
+            return Palette(
+                isDark = dark,
+                keyboardBg = gBg,
+                keyBg = gKey,
+                funcKeyBg = gFunc,
+                primaryBg = gKey,
+                primaryContent = gText,
+                keyText = gText,
+                accent = gAccent,
+                outline = gOutline,
+                candidateBg = withAlpha(if (dark) 0xFF14161B.toInt() else 0xFFFFFFFF.toInt(), 200),
+                panelBg = withAlpha(if (dark) 0xFF15171C.toInt() else 0xFFF3F5F8.toInt(), 232),
+                panelCard = withAlpha(if (dark) 0xFF1E2127.toInt() else 0xFFFFFFFF.toInt(), 240),
+                barContainer = gBg,
+                barOutline = gOutline,
+                onSurfaceVariant = if (dark) 0xFFB9BDC6.toInt() else 0xFF5A5F68.toInt(),
+                onSurface = gText,
+                selected = gAccent,
+                cardOutline = gOutline,
+                dialogContainer = withAlpha(if (dark) 0xFF1B1E24.toInt() else 0xFFFFFFFF.toInt(), 240),
+                glass = true,
+                // 轮廓更淡（几乎看不出线）、顶部高光用柔和渐变（不刺眼）
+                glassStroke = if (dark) 0x1FFFFFFF.toInt() else 0x30FFFFFF.toInt(),
+                glassHighlight = if (dark) 0x26FFFFFF.toInt() else 0x40FFFFFF.toInt(),
+            )
+        }
 
         // 诊断：把实际用到的配色打出来（每个进程只打一次，确认按钮色与键盘底色是否过于接近）
         if (!paletteLogged) {
@@ -149,6 +210,7 @@ object KeyboardTheme {
             selected = scheme.primary.toArgb(),
             cardOutline = scheme.outlineVariant.toArgb(),
             dialogContainer = scheme.surfaceContainerHigh.toArgb(),
+            glass = glass,
         )
     }
 
@@ -311,7 +373,9 @@ object KeyboardTheme {
             keyHeightPx = (settings.keyHeightDp * density).toInt(),
             gapPx = (settings.keyGapDp * density).toInt(),
             cornerPx = settings.keyCornerDp * density,
-            keyboardBg = p.keyboardBg,
+            // 玻璃模式：KeyboardView 自己不再铺底色（否则与容器底色叠两次 → 键盘区比按钮栏、
+            // 候选栏深一截）。留成透明，统一由容器那一层上色，整块键盘颜色就一致了。
+            keyboardBg = if (p.glass) Color.TRANSPARENT else p.keyboardBg,
             keyBg = p.keyBg,
             funcKeyBg = p.funcKeyBg,
             primaryBg = p.primaryBg,
@@ -320,6 +384,9 @@ object KeyboardTheme {
             accent = p.accent,
             outline = p.outline,
             onSurface = p.onSurface,
+            glass = p.glass,
+            glassStroke = p.glassStroke,
+            glassHighlight = p.glassHighlight,
         )
     }
 
@@ -331,8 +398,9 @@ object KeyboardTheme {
             // 必须与 IceInputMethodService.BAR_HEIGHT_DP 一致：
             // 若比那一行矮，视图会在行内顶部对齐，候选词就会被「抬高」而离第一行字母很远。
             heightPx = (50 * density).toInt(),
-            // 候选栏底色与键盘底色一致 → 视觉上是整体一块，没有割裂感
-            barBg = p.keyboardBg,
+            // 候选栏底色与键盘底色一致 → 视觉上是整体一块，没有割裂感；
+            // 玻璃效果下用透明（否则半透明色叠在键盘底色上会变暗）
+            barBg = if (p.glass) Color.TRANSPARENT else p.keyboardBg,
             text = p.keyText,
             accent = p.accent,
             outline = p.outline,

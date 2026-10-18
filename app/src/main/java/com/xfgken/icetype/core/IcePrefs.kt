@@ -35,6 +35,8 @@ object IcePrefs {
         val barCornerDp: Int = 18,
         /** 整个键盘的左上角 / 右上角圆角（像 iPhone 键盘那种）；0 = 方角（默认），最大 20。 */
         val keyboardTopCornerDp: Int = 0,
+        /** 玻璃效果（iOS 风格）：键盘半透明 + 输入法窗口背景模糊。 */
+        val glassEnabled: Boolean = false,
         /** 候选词字号（sp），默认 21。 */
         val candidateTextSp: Int = 21,
         val autoCapitalize: Boolean = false,
@@ -128,6 +130,7 @@ object IcePrefs {
             keyCornerDp = sp.getInt("keyCornerDp", d.keyCornerDp),
             barCornerDp = sp.getInt("barCornerDp", d.barCornerDp),
             keyboardTopCornerDp = sp.getInt("keyboardTopCornerDp", d.keyboardTopCornerDp),
+            glassEnabled = sp.getBoolean("glassEnabled", d.glassEnabled),
             candidateTextSp = sp.getInt("candidateTextSp", d.candidateTextSp),
             autoCapitalize = sp.getBoolean("autoCapitalize", d.autoCapitalize),
             enterKeyForNewline = sp.getBoolean("enterKeyForNewline", d.enterKeyForNewline),
@@ -190,6 +193,9 @@ object IcePrefs {
 
     /** 键盘左上 / 右上圆角。 */
     fun setKeyboardTopCorner(dp: Int) = edit { it.putInt("keyboardTopCornerDp", dp) }
+
+    /** 玻璃效果（iOS 风格）。 */
+    fun setGlassEnabled(on: Boolean) = edit { it.putBoolean("glassEnabled", on) }
 
     fun setKeyHeight(dp: Int) = edit { it.putInt("keyHeightDp", dp) }
 

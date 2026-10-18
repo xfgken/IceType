@@ -43,6 +43,10 @@ class KeyboardView @JvmOverloads constructor(
         val outline: Int,
         /** M3 `onSurface`：普通/功能键按下状态层所用的内容色。 */
         val onSurface: Int,
+        /** 玻璃效果：每颗按键画描边 + 顶部高光。 */
+        val glass: Boolean = false,
+        val glassStroke: Int = 0x40FFFFFF,
+        val glassHighlight: Int = 0x66FFFFFF,
     )
 
     var style: Style = Style(
@@ -107,6 +111,14 @@ class KeyboardView @JvmOverloads constructor(
     var onSwipeCancel: (() -> Unit)? = null
 
     private val keyPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+
+    /** 玻璃按键的描边 / 高光画笔（独立一支，避免影响按键底色的填充画笔）。 */
+    private val glassPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+
+    /** 玻璃顶部高光的渐变缓存（同一键高复用同一个 shader，不重复创建对象）。 */
+    private val glassShaderCache = HashMap<Long, android.graphics.LinearGradient>()
+    private val glassMatrix = android.graphics.Matrix()
+
     private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         textAlign = Paint.Align.CENTER
         typeface = Typeface.create("sans-serif", Typeface.NORMAL)
@@ -506,6 +518,7 @@ class KeyboardView @JvmOverloads constructor(
         keyPaint.style = Paint.Style.FILL
         keyPaint.color = bg
         canvas.drawRoundRect(box, style.cornerPx, style.cornerPx, keyPaint)
+        if (style.glass) drawGlassEdges(canvas, box)
         // 长按不用「整块压暗」的按下状态层，改成从触点扩散的涟漪（与普通按键手感一致）
         if (stretchRippleRunning) {
             val progress = ((SystemClock.uptimeMillis() - stretchRippleStart) / STRETCH_RIPPLE_MS)
@@ -547,6 +560,58 @@ class KeyboardView @JvmOverloads constructor(
         }
     }
 
+    /**
+     * 玻璃按键的完整绘制（外观层），从上到下依次是：
+     *
+     * ⓪ 投影（下沉 1.2dp 的暗色）——键浮在键盘上；
+     * ① 半透明底色；
+     * ② 釉面渐变：顶部受光偏亮 → 中部近乎透明 → 底部略暗（体积感）；
+     * ③ 细噪点（5% 强度）——破掉“塑料片”观感，是磨砂玻璃的关键；
+     * ④ 底部内阴影——键有厚度；
+     * ⑤ 整圈边缘反光 + 下半圈暗边（上亮下暗 = 真玻璃断面的样子）；
+     * ⑥ 顶部高光——按下时更亮，并随手指位置左右偏移（动态高光）。
+     */
+    /**
+     * 玻璃按键（简版）：整圈 1dp 半透明白描边 + 上半圈更亮的描边（顶部高光）。
+     */
+    private fun drawGlassEdges(canvas: Canvas, rect: RectF) {
+        if (rect.width() <= 0f || rect.height() <= 0f) return
+        val density = resources.displayMetrics.density
+        val r = style.cornerPx
+
+        // 顶部高光：改成「竖向渐隐的亮带」，上缘稍亮、往下平滑消失（不是一条分明的线）
+        glassPaint.shader = glassHighlightGradient(rect)
+        glassPaint.style = Paint.Style.FILL
+        canvas.drawRoundRect(rect, r, r, glassPaint)
+        glassPaint.shader = null
+
+        // 轮廓：只留极淡的一圈，α 降得很低，几乎看不出线条
+        val stroke = (1f * density).coerceAtLeast(1f)
+        val inset = stroke / 2f
+        val inner = RectF(rect.left + inset, rect.top + inset, rect.right - inset, rect.bottom - inset)
+        glassPaint.style = Paint.Style.STROKE
+        glassPaint.strokeWidth = stroke
+        glassPaint.color = style.glassStroke
+        canvas.drawRoundRect(inner, (r - inset).coerceAtLeast(0f), (r - inset).coerceAtLeast(0f), glassPaint)
+    }
+
+    /** 顶部高光的渐变（按键高缓存；从下往上淡出，柔和不分明）。 */
+    private fun glassHighlightGradient(rect: RectF): android.graphics.LinearGradient {
+        val key = 0x300000000L + (rect.height().toInt().toLong() shl 4)
+        val shader = glassShaderCache.getOrPut(key) {
+            val top = style.glassHighlight
+            android.graphics.LinearGradient(
+                0f, 0f, 0f, rect.height() * 0.48f,
+                intArrayOf(top, top and 0x00FFFFFF),
+                null,
+                android.graphics.Shader.TileMode.CLAMP,
+            )
+        }
+        glassMatrix.setTranslate(rect.left, rect.top)
+        shader.setLocalMatrix(glassMatrix)
+        return shader
+    }
+
     /** 在指定位置画一个按键文字（与 drawKey 里的字号规则保持一致）。 */
     private fun drawKeyLabel(canvas: Canvas, label: String, cx: Float, cy: Float, rect: RectF, alpha: Float) {
         if (label.isEmpty() || alpha <= 0.02f) return
@@ -576,7 +641,19 @@ class KeyboardView @JvmOverloads constructor(
         keyPaint.style = Paint.Style.FILL
         keyPaint.color = bg
         canvas.drawRoundRect(rect, style.cornerPx, style.cornerPx, keyPaint)
+        if (style.glass) drawGlassEdges(canvas, rect)
+        drawKeyContent(canvas, rect, key, pressed, spin, textAlpha)
+    }
 
+    /** 按键的「内容」（状态层 / 涟漪 / 图标 / 文字），与底色绘制分离，供玻璃模式复用。 */
+    private fun drawKeyContent(
+        canvas: Canvas,
+        rect: RectF,
+        key: KeyDef,
+        pressed: Boolean,
+        spin: Float,
+        textAlpha: Float,
+    ) {
         val content = when {
             key.isPrimary -> style.primaryContent
             key.active -> style.accent
@@ -625,8 +702,11 @@ class KeyboardView @JvmOverloads constructor(
             -1
         }
 
-        if (key.icon != null) {
-            val d = ContextCompat.getDrawable(context, key.icon)
+        // 先取到局部变量：KeyDef.icon 带 @get 注解（自定义 getter），
+        // 直接对 key.icon 做智能转换编译器不认，会报 Smart cast impossible。
+        val iconRes = key.icon
+        if (iconRes != null) {
+            val d = ContextCompat.getDrawable(context, iconRes)
             val size = (minOf(rect.height() * 0.52f, rect.width() * 0.62f)).toInt()
                 .coerceAtMost(dp(26))
             val cx = rect.centerX().toInt()

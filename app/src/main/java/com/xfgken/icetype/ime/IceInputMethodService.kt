@@ -66,6 +66,14 @@ class IceInputMethodService : InputMethodService() {
 
     /** 中英切换按钮当前显示的是不是中文形态；null 表示还没摆过（首次不做动画）。 */
     private var langShownChinese: Boolean? = null
+    /**
+     * 最近一次「字母键盘」的语言（中文拼音 / 英文）。
+     *
+     * 数字键盘、符号页不是字母布局，但它们发生时会重建工具栏并刷新中英切换按钮；
+     * 如果直接用 `layoutType == CHINESE_PINYIN` 判断，进数字/符号页就会被误判成
+     * “切到英文”，按钮凭空旋转切换一次。所以这里记下最后一次字母布局的语言。
+     */
+    private var lastLetterLayout: LayoutType = LayoutType.CHINESE_PINYIN
     private var actionRow: android.widget.FrameLayout? = null
     private var root: LinearLayout? = null
 
@@ -1322,8 +1330,11 @@ class IceInputMethodService : InputMethodService() {
         val half = 18f * density
         val radius = (prefs.barCornerDp * density).coerceIn(0f, half)
         val shape = android.graphics.drawable.GradientDrawable().apply {
+
             setColor(palette.funcKeyBg)
+
             cornerRadius = radius
+
         }
         val wrapper = android.widget.FrameLayout(this).apply {
             // 去掉安卓默认的点击涟漪（"按一下泛一下"的那种系统效果）：
@@ -1391,8 +1402,11 @@ class IceInputMethodService : InputMethodService() {
         val half = 18f * density
         val radius = (prefs.barCornerDp * density).coerceIn(0f, half)
         val shape = android.graphics.drawable.GradientDrawable().apply {
+
             setColor(palette.funcKeyBg)
+
             cornerRadius = radius
+
         }
         val wrapper = android.widget.FrameLayout(this).apply {
             // 与旁边按钮一致：无系统涟漪、无系统触摸提示音（只播自带的按钮栏音效）
@@ -1789,8 +1803,11 @@ class IceInputMethodService : InputMethodService() {
         val half = 18f * density
         val radius = (prefs.barCornerDp * density).coerceIn(0f, half)
         val shape = android.graphics.drawable.GradientDrawable().apply {
+
             setColor(palette.funcKeyBg)
+
             cornerRadius = radius
+
         }
         val root = android.widget.FrameLayout(this).apply {
             background = android.graphics.drawable.RippleDrawable(
@@ -2012,8 +2029,11 @@ class IceInputMethodService : InputMethodService() {
         val half = 18f * density
         val radius = (prefs.barCornerDp * density).coerceIn(0f, half)
         val shape = android.graphics.drawable.GradientDrawable().apply {
+
             setColor(palette.funcKeyBg)
+
             cornerRadius = radius
+
         }
         val wrapper = android.widget.FrameLayout(this).apply {
             // 与三个面板按钮一致：不要安卓默认的点击涟漪，只保留实色圆角底
@@ -2066,7 +2086,12 @@ class IceInputMethodService : InputMethodService() {
      * 注意**不能**直接让整个按钮旋转 180° —— EN / 拼 是文字，转过去会变成倒的。
      */
     private fun refreshLangButton() {
-        val chinese = layoutType == LayoutType.CHINESE_PINYIN
+        // 只有字母布局才更新「当前语言」；数字/符号页沿用上一次字母布局的语言，
+        // 这样进数字键盘、符号页时中英切换按钮不会平白旋转切换一次。
+        if (layoutType == LayoutType.CHINESE_PINYIN || layoutType == LayoutType.ENGLISH) {
+            lastLetterLayout = layoutType
+        }
+        val chinese = lastLetterLayout == LayoutType.CHINESE_PINYIN
         langLabel?.contentDescription = getString(R.string.kbd_chinese)
         langIcon?.contentDescription = getString(R.string.kbd_chinese)
 
@@ -2111,8 +2136,11 @@ class IceInputMethodService : InputMethodService() {
             val half = 18f * density // 按钮 36dp，圆角最大只能到一半
             val radius = (prefs.barCornerDp * density).coerceIn(0f, half)
             val shape = android.graphics.drawable.GradientDrawable().apply {
-                setColor(palette.funcKeyBg) // 实色底
+
+                setColor(palette.funcKeyBg)
+
                 cornerRadius = radius
+
             }
             background = android.graphics.drawable.RippleDrawable(
                 ColorStateList.valueOf(KeyboardTheme.withAlpha(palette.onSurfaceVariant, 26)),

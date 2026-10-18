@@ -78,7 +78,10 @@ class PanelView(context: Context) : LinearLayout(context) {
         this.palette = palette
         // 与按钮栏用同一个底色（输入法容器色 = 键盘底色），
         // 这样点进表情 / 剪贴板 / 常用语时，面板背景和按钮栏是一整块。
-        setBackgroundColor(palette.keyboardBg)
+        //
+        // 玻璃模式下必须给透明：键盘底色本身是半透明的，而容器已经铺过一层，
+        // 面板再铺同一层就会叠成两层 → 列表页比按钮栏/键盘区明显更暗。
+        setBackgroundColor(if (palette.glass) Color.TRANSPARENT else palette.keyboardBg)
         rebuild()
     }
 

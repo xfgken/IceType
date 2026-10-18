@@ -312,6 +312,7 @@ fun ThemeSettingsPage() {
                     IcePrefs.setKeyText(null)
                     IcePrefs.setKeyCorner(12)
                     IcePrefs.setDynamicColor(true)
+                    IcePrefs.setGlassEnabled(false)
                     AppLog.i(AppLog.Category.UI, "键盘配色已恢复默认")
                 },
                 modifier = Modifier.offset(x = 14.dp),
@@ -364,7 +365,7 @@ fun ThemeSettingsPage() {
             )
             Spacer(Modifier.height(2.dp))
             Text(
-                "一键换整套配色，深浅色自动跟随上面的主题模式；默认方案取系统动态色。",
+                "一键换整套配色，深浅色自动跟随上面的主题模式；默认方案取系统动态色，“透明效果”为独立的中性玻璃配色。",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -374,8 +375,14 @@ fun ThemeSettingsPage() {
         val dynamicAccent = remember(settings.themeMode) {
             KeyboardTheme.baseAccent(context)
         }
+        // 第二个色块就是「透明效果」：它是一套独立的中性玻璃配色，不跟随其它方案
+        val glassTones = listOf(
+            0xFF2A2D33.toInt(), 0xFF555963.toInt(), 0xFF8A8F99.toInt(),
+            0xFFC0C5CC.toInt(), 0xFFF1F3F7.toInt(),
+        )
         val cells = buildList {
             add(ColorSchemePreset("默认（动态颜色）", tonesFrom(dynamicAccent)))
+            add(ColorSchemePreset("透明效果", glassTones))
             addAll(PresetSchemes)
         }
         // 一行两个色块，依次排下去
@@ -387,29 +394,39 @@ fun ThemeSettingsPage() {
                 ) {
                     pair.forEach { preset ->
                         val isDefault = preset.name.startsWith("默认")
-                        val selected = if (isDefault) {
-                            settings.accentArgb == null
-                        } else {
-                            settings.accentArgb == preset.accent
+                        val isGlass = preset.name == "透明效果"
+                        // 单选：透明效果开启时不看 accent，其它方案选中时 transparent 自动落选
+                        val selected = when {
+                            isGlass -> settings.glassEnabled
+                            settings.glassEnabled -> false
+                            isDefault -> settings.accentArgb == null
+                            else -> settings.accentArgb == preset.accent
                         }
                         SchemeCell(
                             preset = preset,
                             selected = selected,
                             modifier = Modifier.weight(1f),
                         ) {
-                            if (isDefault) {
-                                IcePrefs.setAccent(null)
-                                IcePrefs.setKeyboardBg(null)
-                                IcePrefs.setKeyBg(null)
-                                IcePrefs.setFuncKeyBg(null)
-                                IcePrefs.setKeyText(null)
-                                IcePrefs.setDynamicColor(true)
+                            if (isGlass) {
+                                // 透明效果：独立的中性玻璃配色（不跟随强调色）
+                                IcePrefs.setGlassEnabled(true)
                             } else {
-                                IcePrefs.setAccent(preset.accent)
-                                IcePrefs.setKeyboardBg(null)
-                                IcePrefs.setKeyBg(null)
-                                IcePrefs.setFuncKeyBg(null)
-                                IcePrefs.setKeyText(null)
+                                // 选其它方案时自动关掉透明效果
+                                IcePrefs.setGlassEnabled(false)
+                                if (isDefault) {
+                                    IcePrefs.setAccent(null)
+                                    IcePrefs.setKeyboardBg(null)
+                                    IcePrefs.setKeyBg(null)
+                                    IcePrefs.setFuncKeyBg(null)
+                                    IcePrefs.setKeyText(null)
+                                    IcePrefs.setDynamicColor(true)
+                                } else {
+                                    IcePrefs.setAccent(preset.accent)
+                                    IcePrefs.setKeyboardBg(null)
+                                    IcePrefs.setKeyBg(null)
+                                    IcePrefs.setFuncKeyBg(null)
+                                    IcePrefs.setKeyText(null)
+                                }
                             }
                             AppLog.i(AppLog.Category.UI, "应用配色方案：${preset.name}")
                         }
@@ -601,7 +618,6 @@ private val PresetSchemes: List<ColorSchemePreset> = listOf(
     scheme("雾凇蓝", 0xFFF1F8FE, 0xFFBBDDF8, 0xFF42A5F5, 0xFF1976D2, 0xFF0D47A1),
     scheme("樱花粉", 0xFFFEF3F7, 0xFFF8BBD0, 0xFFEC407A, 0xFFC2185B, 0xFF880E4F),
     scheme("靛青", 0xFFE8EAF6, 0xFF9FA8DA, 0xFF5C6BC0, 0xFF303F9F, 0xFF1A237E),
-    scheme("暖阳橙", 0xFFFFF9F0, 0xFFFFD9A0, 0xFFFFA726, 0xFFEF6C00, 0xFFE65100),
     scheme("石墨灰", 0xFFECEFF1, 0xFFB0BEC5, 0xFF78909C, 0xFF455A64, 0xFF263238),
     scheme("雪松灰", 0xFFF8FAFB, 0xFFE6EBEF, 0xFFCCD5DD, 0xFFA8B4BE, 0xFF8894A0),
     scheme("浅雾蓝", 0xFFFBFDFF, 0xFFE9F3FC, 0xFFC6DEF2, 0xFF9DC0DE, 0xFF78A2C2),
