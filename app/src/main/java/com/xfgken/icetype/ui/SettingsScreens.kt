@@ -233,6 +233,13 @@ fun KeyboardSettingsPage() {
         }
         Item {
             SwitchRow(
+                title = "剪贴板候选",
+                desc = "复制内容后，候选栏自动显示最新一条，点击可直接粘贴",
+                checked = settings.clipboardCandidateEnabled,
+            ) { IcePrefs.setClipboardCandidate(it) }
+        }
+        Item {
+            SwitchRow(
                 title = "词频学习",
                 desc = "关闭后不再把上屏词条写入用户词典",
                 checked = settings.learningEnabled,

@@ -360,6 +360,9 @@ class PanelView(context: Context) : LinearLayout(context) {
         val actionRow = LinearLayout(context).apply {
             orientation = HORIZONTAL
             gravity = Gravity.END or Gravity.CENTER_VERTICAL
+            // 收起时完全不可见（透明主题下也不会透过半透明卡片露出来）；
+            // INVISIBLE 仍参与测量，realActionsWidth() 照常能用。
+            visibility = View.INVISIBLE
         }
         actions.forEach { action ->
             val button = LinearLayout(context).apply {
@@ -549,6 +552,31 @@ val iconView = android.widget.ImageView(context).apply {
                 .setDuration(180L)
                 .setInterpolator(android.view.animation.DecelerateInterpolator())
                 .start()
+            if (target) {
+                // 展开：先置为可见，再从右边缘渐显 + 轻微左移归位
+                // （reapplyOpen 在删除二次确认拉长后也会再调 applyOpen(true)，
+                //   此时按钮已经可见，跳过这步避免闪一下）
+                if (actionRow.visibility != View.VISIBLE) {
+                    actionRow.visibility = View.VISIBLE
+                    actionRow.alpha = 0f
+                    actionRow.translationX = dp(14).toFloat()
+                    actionRow.animate()
+                        .alpha(1f)
+                        .translationX(0f)
+                        .setDuration(200L)
+                        .setInterpolator(android.view.animation.PathInterpolator(0.2f, 0f, 0f, 1f))
+                        .start()
+                }
+            } else {
+                // 收起：先淡出 + 往右退回，动画结束再隐藏
+                actionRow.animate()
+                    .alpha(0f)
+                    .translationX(dp(14).toFloat())
+                    .setDuration(160L)
+                    .setInterpolator(android.view.animation.PathInterpolator(0.3f, 0f, 0f, 1f))
+                    .withEndAction { actionRow.visibility = View.INVISIBLE }
+                    .start()
+            }
             // 按钮本身也换向：展开时是 ›，收起时是 ‹
             more.setImageResource(
                 if (target) R.drawable.ic_row_collapse else R.drawable.ic_row_expand,

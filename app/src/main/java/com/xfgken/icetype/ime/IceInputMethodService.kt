@@ -161,6 +161,12 @@ class IceInputMethodService : InputMethodService() {
     /** 系统剪贴板监听器：每复制一次立刻记录一次（见 [registerClipboardWatcher]）。 */
     private var clipboardListener: android.content.ClipboardManager.OnPrimaryClipChangedListener? = null
 
+    /** 剪贴板候选：候选栏当前显示的剪贴板文本；null 表示不显示。 */
+    private var clipboardSuggestionText: String? = null
+
+    /** 被用户点 ✕ 关闭过的剪贴板内容；内容变化前不再自动显示。 */
+    private var clipboardSuggestionDismissed: String? = null
+
     /** 最近一次引擎上下文，用于判断那一行该显示候选还是工具栏。 */
     private var lastPreedit: String = ""
 
@@ -1130,6 +1136,9 @@ class IceInputMethodService : InputMethodService() {
                     "候选栏滑动：位移 ${dx.toInt()}px，可滚动上限 ${maxScroll.toInt()}px",
                 )
             }
+            // 剪贴板候选：点文字上屏，点 ✕ 关闭
+            onClipboardCommit = { commitClipboardSuggestion() }
+            onClipboardDismiss = { dismissClipboardSuggestion() }
         }
 
         // 工具栏与候选栏共用同一行：空闲时显示工具栏按钮，输入时整行变为候选栏。
@@ -2398,7 +2407,7 @@ class IceInputMethodService : InputMethodService() {
         }
 
         val composing = !lastPreedit.isEmpty() || lastCandidates.isNotEmpty()
-        val showCandidate = composing || predictionWords.isNotEmpty()
+        val showCandidate = composing || predictionWords.isNotEmpty() || clipboardSuggestionText != null
         // 数字键盘下不需要候选栏（且工具栏必须可用）；
         // 唯一的例外是「输入 @ 后的邮箱后缀候选」——它必须**立刻**出现，不用切回字母键盘。
         val wantBar = showCandidate && prefs.candidateBarVisible &&
@@ -2426,6 +2435,7 @@ class IceInputMethodService : InputMethodService() {
         if (emailMode && !emailBlocked && !suggestionsDismissed &&
             lastPreedit.isEmpty() && refreshEmailSuggestions()
         ) {
+            clearClipboardSuggestion()
             lastPreedit = ""
             lastCandidates = emailSuggestions.map { RimeEngine.Candidate(it.first, "") }
             predictionWords = emptyList()
@@ -2443,6 +2453,7 @@ class IceInputMethodService : InputMethodService() {
         }
         // 英文候选：英文键盘下按已打字母做词表前缀补全
         if (lastPreedit.isEmpty() && showEnglishSuggestions()) {
+            clearClipboardSuggestion()
             lastPreedit = ""
             lastCandidates = englishSuggestions.map { RimeEngine.Candidate(it.first, "") }
             predictionWords = emptyList()
@@ -2489,6 +2500,7 @@ class IceInputMethodService : InputMethodService() {
 
     private fun updateCandidatesWith(ctx: RimeEngine.RimeContext) {
         val bar = candidateBar ?: return
+        if (ctx.preedit.isNotEmpty() || ctx.candidates.isNotEmpty()) clearClipboardSuggestion()
         // 每次刷新先清空重排映射：只有真正重排过的列表才会重新赋值
         candidateOrder = null
         // 一旦有拼音组合串，邮箱候选模式让位给正常拼音输入（候选栏显示拼音候选）
@@ -2707,6 +2719,7 @@ class IceInputMethodService : InputMethodService() {
         // 键盘弹出时顺手采集一次剪贴板（尊重历史开关与密码框保护），
         // 这样用户复制过的内容会自然积累到列表里
         captureClipboard()
+        refreshClipboardSuggestion()
         // 英文句首自动大写功能已按用户要求移除（不再自动点亮 Shift）。
         applyLayout()
         ensureEngine()
@@ -2847,6 +2860,42 @@ class IceInputMethodService : InputMethodService() {
         ClipboardStore.captureFromSystem(this, fromPasswordField = false)
     }
 
+    /** 刷新候选栏的剪贴板建议：开关关闭 / 数字键盘页 / 内容为空 / 已关闭过 → 都不显示。 */
+    private fun refreshClipboardSuggestion() {
+        if (!prefs.clipboardCandidateEnabled) { clearClipboardSuggestion(); return }
+        if (layoutType == LayoutType.NUMBERS) { clearClipboardSuggestion(); return }
+        val text = ClipboardStore.current()
+        if (text.isNullOrBlank()) { clearClipboardSuggestion(); return }
+        if (text == clipboardSuggestionDismissed) { clearClipboardSuggestion(); return }
+        clipboardSuggestionText = text
+        candidateBar?.setClipboardSuggestion(text)
+        refreshActionRow()
+    }
+
+    private fun clearClipboardSuggestion() {
+        clipboardSuggestionText = null
+        candidateBar?.setClipboardSuggestion(null)
+        refreshActionRow()
+    }
+
+    /** 点剪贴板建议的文字区域：直接把内容上屏到光标处。 */
+    private fun commitClipboardSuggestion() {
+        val text = clipboardSuggestionText ?: return
+        playToolbarSound()
+        commitToEditor(text)
+        clearClipboardSuggestion()
+        AppLog.i(AppLog.Category.CLIPBOARD, "剪贴板候选上屏（长度 ${text.length}）")
+    }
+
+    /** 点剪贴板建议的 ✕：关闭这条，内容变化前不再显示。 */
+    private fun dismissClipboardSuggestion() {
+        val text = clipboardSuggestionText ?: return
+        playToolbarSound()
+        clipboardSuggestionDismissed = text
+        clearClipboardSuggestion()
+        AppLog.i(AppLog.Category.CLIPBOARD, "用户关闭剪贴板候选")
+    }
+
 /**
      * 监听系统剪贴板：用户每复制一次，就立刻记录一次。
      *
@@ -2859,6 +2908,9 @@ class IceInputMethodService : InputMethodService() {
             val cm = getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
             val listener = android.content.ClipboardManager.OnPrimaryClipChangedListener {
                 captureClipboard()
+                // 有新的复制内容：清掉上一次「点 ✕ 关闭」的记忆，并刷新候选栏建议
+                clipboardSuggestionDismissed = null
+                refreshClipboardSuggestion()
             }
             cm.addPrimaryClipChangedListener(listener)
             clipboardListener = listener
@@ -3627,8 +3679,18 @@ class IceInputMethodService : InputMethodService() {
             is KeyAction.ToggleChineseEnglish, is KeyAction.SymbolCategory,
             is KeyAction.PageCandidates, is KeyAction.None ->
                 KeySoundPlayer.Kind.ACTION
-            // 数字键盘页上的数字 / 符号 / 表情键都算功能音
-            else -> if (onNumbers) KeySoundPlayer.Kind.ACTION else KeySoundPlayer.Kind.CLICK
+            // 数字键（0-9）永远用与 26 字母一致的「打字音」；
+            // 数字键盘页上的其它键（符号 / 表情等）仍算功能音。
+            else -> {
+                val code = (key.action as? KeyAction.Rime)?.keycode
+                if (code != null && code in '0'.code..'9'.code) {
+                    KeySoundPlayer.Kind.CLICK
+                } else if (onNumbers) {
+                    KeySoundPlayer.Kind.ACTION
+                } else {
+                    KeySoundPlayer.Kind.CLICK
+                }
+            }
         }
     }
 

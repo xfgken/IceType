@@ -165,7 +165,7 @@ object KeyboardTheme {
                 outline = gOutline,
                 candidateBg = withAlpha(if (dark) 0xFF14161B.toInt() else 0xFFFFFFFF.toInt(), 200),
                 panelBg = withAlpha(if (dark) 0xFF15171C.toInt() else 0xFFF3F5F8.toInt(), 232),
-                panelCard = withAlpha(if (dark) 0xFF1E2127.toInt() else 0xFFFFFFFF.toInt(), 240),
+                panelCard = withAlpha(if (dark) 0xFF1E2127.toInt() else 0xFFFFFFFF.toInt(), if (dark) 110 else 120),
                 barContainer = gBg,
                 barOutline = gOutline,
                 onSurfaceVariant = if (dark) 0xFFB9BDC6.toInt() else 0xFF5A5F68.toInt(),
@@ -405,6 +405,7 @@ object KeyboardTheme {
             accent = p.accent,
             outline = p.outline,
             buttonBg = p.funcKeyBg,
+            iconTint = p.onSurfaceVariant,
             // 候选词高亮背景的圆角跟随「按键圆角」设置（0dp 就变成方角）
             cornerPx = settings.keyCornerDp * density,
             // 按钮栏按钮（含候选栏右侧 ✕）的圆角跟随「按钮栏圆角」设置

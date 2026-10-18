@@ -52,6 +52,8 @@ class CandidateBarView @JvmOverloads constructor(
          * 这样**第一个候选词背景的左边缘正好和字母 Q 的左边缘对齐**。
          */
         val sidePadPx: Float = 0f,
+        /** 剪贴板候选左侧图标按钮的图标着色（与按钮栏图标一致）。 */
+        val iconTint: Int = Color.LTGRAY,
     )
 
     var style: Style = Style(
@@ -82,6 +84,12 @@ class CandidateBarView @JvmOverloads constructor(
     private var hasNextPage = false
     private var prediction = false
 
+    // —— 剪贴板建议（候选栏里那条「剪贴板图标 + 文本 + ✕」）——
+    private var clipboardText: String? = null
+    private var clipboardCommitRect = RectF()
+    private var clipboardDismissRect = RectF()
+    private var pressedClipboardDismiss = false
+
     private val candidateRects = ArrayList<RectF>()
     private var dismissRect = RectF()
 
@@ -96,6 +104,12 @@ class CandidateBarView @JvmOverloads constructor(
 
     /** 长按候选：回调（候选序号、该候选在控件内的中心 X）。 */
     var onLongPressCandidate: ((Int, Float) -> Unit)? = null
+
+    /** 剪贴板建议：点文字区域 → 把剪贴板内容上屏。 */
+    var onClipboardCommit: (() -> Unit)? = null
+
+    /** 剪贴板建议：点 ✕ → 关闭这条提示。 */
+    var onClipboardDismiss: (() -> Unit)? = null
 
     /** 滚动回调（仅用于诊断日志：确认横向滑动手势是否真的进来、可滚动范围有多大）。 */
     var onSwipe: ((dx: Float, maxScroll: Float) -> Unit)? = null
@@ -191,6 +205,14 @@ private var scrollOffset = 0f
         longPressRunnable = null
     }
 
+    /** 设置 / 清除剪贴板建议（传 null 或空白表示不显示）。 */
+    fun setClipboardSuggestion(text: String?) {
+        val t = text?.takeIf { it.isNotBlank() }
+        if (clipboardText == t) return
+        clipboardText = t
+        invalidate()
+    }
+
     fun update(
         preedit: String,
         candidates: List<RimeEngine.Candidate>,
@@ -223,6 +245,10 @@ private var scrollOffset = 0f
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         canvas.drawColor(style.barBg)
+        if (!clipboardText.isNullOrEmpty()) {
+            drawClipboardSuggestion(canvas)
+            return
+        }
         val w = width.toFloat()
         val h = height.toFloat()
         // 与键盘左右留白完全一致（用按键间距那个值）→ 首个候选词的背景左边缘对齐 Q 键左边缘
@@ -344,6 +370,54 @@ private var scrollOffset = 0f
         // ④ 不再画任何翻页指示：候选词是一整条可左右滑动的列表
     }
 
+    /** 绘制剪贴板建议：剪贴板图标 + 单行文本（右端渐隐）+ ✕。 */
+    private fun drawClipboardSuggestion(canvas: Canvas) {
+        val w = width.toFloat()
+        val h = height.toFloat()
+        val pad = if (style.sidePadPx > 0f) style.sidePadPx else dpF(4)
+        val centerY = h / 2f
+        val size = dpF(36)
+        val cx = w - dpF(24)
+        clipboardDismissRect = RectF(cx - size / 2, centerY - size / 2, cx + size / 2, centerY + size / 2)
+        // 左侧剪贴板图标：做成和品牌 logo / 剪贴板按钮同款的方形圆角按钮块
+        val iconBtnSize = dpF(36)
+        val iconBtnRect = RectF(pad, centerY - iconBtnSize / 2, pad + iconBtnSize, centerY + iconBtnSize / 2)
+        val iconR = style.barCornerPx.coerceIn(0f, iconBtnSize / 2)
+        pillPaint.color = style.buttonBg
+        canvas.drawRoundRect(iconBtnRect, iconR, iconR, pillPaint)
+        drawIcon(canvas, R.drawable.ic_clipboard, iconBtnRect, style.iconTint, dp(20))
+        candidatePaint.textSize = if (style.textSizePx > 0f) style.textSizePx else dpF(20)
+        candidatePaint.typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+        candidatePaint.color = style.text
+        val textStart = pad + iconBtnSize + dpF(10)
+        val textEnd = cx - size / 2 - dpF(8)
+        val baseline = centerY - (candidatePaint.descent() + candidatePaint.ascent()) / 2f
+        val text = clipboardText ?: ""
+        val textWidth = candidatePaint.measureText(text)
+        val avail = textEnd - textStart
+        val save = canvas.save()
+        canvas.clipRect(textStart, 0f, textEnd, h)
+        canvas.drawText(text, textStart, baseline, candidatePaint)
+        canvas.restoreToCount(save)
+        if (textWidth > avail) {
+            val fadeW = dpF(24)
+            val fadeStart = textEnd - fadeW
+            val clear = style.barBg and 0x00FFFFFF
+            fadePaint.shader = android.graphics.LinearGradient(
+                fadeStart, 0f, textEnd, 0f,
+                intArrayOf(clear, style.barBg),
+                null, android.graphics.Shader.TileMode.CLAMP,
+            )
+            canvas.drawRect(fadeStart, 0f, textEnd, h, fadePaint)
+            fadePaint.shader = null
+        }
+        clipboardCommitRect = RectF(0f, 0f, cx - size / 2 - dpF(2), h)
+        pillPaint.color = style.buttonBg
+        val r = style.barCornerPx.coerceIn(0f, size / 2)
+        canvas.drawRoundRect(clipboardDismissRect, r, r, pillPaint)
+        drawIcon(canvas, R.drawable.ic_close, clipboardDismissRect, style.text, dp(20), eggAngle)
+    }
+
     /** 用 Material 图标绘制按钮（不使用代码画的图标）。 */
     private fun drawIcon(
         canvas: Canvas,
@@ -408,6 +482,10 @@ private var scrollOffset = 0f
     override fun onTouchEvent(event: MotionEvent): Boolean {
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
+                if (!clipboardText.isNullOrEmpty()) {
+                    pressedClipboardDismiss = clipboardDismissRect.contains(event.x, event.y)
+                    return true
+                }
                 downX = event.x
                 downY = event.y
                 swiped = false
@@ -459,6 +537,12 @@ private var scrollOffset = 0f
             }
 
             MotionEvent.ACTION_UP -> {
+                if (!clipboardText.isNullOrEmpty()) {
+                    if (pressedClipboardDismiss) onClipboardDismiss?.invoke()
+                    else if (clipboardCommitRect.contains(event.x, event.y)) onClipboardCommit?.invoke()
+                    pressedClipboardDismiss = false
+                    return true
+                }
                 cancelCandidateLongPress()
                 if (longPressFired) {
                     // 长按已弹出菜单：这一下不算点击候选

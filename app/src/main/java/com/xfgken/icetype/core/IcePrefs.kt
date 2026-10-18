@@ -60,6 +60,8 @@ object IcePrefs {
         val vibrateStrength: Int = 25,
         // —— 剪贴板 ——
         val clipboardPanelEnabled: Boolean = true,
+        /** 剪贴板候选：复制内容后候选栏自动显示最新一条供快速粘贴（默认开）。 */
+        val clipboardCandidateEnabled: Boolean = true,
         val clipboardHistoryEnabled: Boolean = true, // 默认开启（仅本地保存，可在设置里关闭）
         val clipboardHistoryLimit: Int = 1000,
         // —— 常用语 / 表情 ——
@@ -147,6 +149,7 @@ object IcePrefs {
             vibrateEnabled = sp.getBoolean("vibrateEnabled", d.vibrateEnabled),
             vibrateStrength = sp.getInt("vibrateStrength", d.vibrateStrength).coerceIn(0, 50),
             clipboardPanelEnabled = sp.getBoolean("clipboardPanelEnabled", d.clipboardPanelEnabled),
+            clipboardCandidateEnabled = sp.getBoolean("clipboardCandidateEnabled", d.clipboardCandidateEnabled),
             clipboardHistoryEnabled = sp.getBoolean("clipboardHistoryEnabled", d.clipboardHistoryEnabled),
             clipboardHistoryLimit = sp.getInt("clipboardHistoryLimit", d.clipboardHistoryLimit)
                 .coerceIn(10, 5000),
@@ -196,6 +199,9 @@ object IcePrefs {
 
     /** 玻璃效果（iOS 风格）。 */
     fun setGlassEnabled(on: Boolean) = edit { it.putBoolean("glassEnabled", on) }
+
+    /** 剪贴板候选开关。 */
+    fun setClipboardCandidate(enabled: Boolean) = edit { it.putBoolean("clipboardCandidateEnabled", enabled) }
 
     fun setKeyHeight(dp: Int) = edit { it.putInt("keyHeightDp", dp) }
 
