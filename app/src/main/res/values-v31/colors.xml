@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+        启动图标底色：Android 12+（API 31）跟随系统壁纸动态取色（Material You）。
+        每台手机壁纸不同，图标背景色也不同；深色模式会自动取对应的深色色阶。
+        system_accent1_500 即系统动态调色板的主色。
+    -->
+    <color name="ic_launcher_background">@android:color/system_accent1_500</color>
+</resources>

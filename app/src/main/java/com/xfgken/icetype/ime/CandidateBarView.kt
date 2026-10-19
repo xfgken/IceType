@@ -300,12 +300,13 @@ private var scrollOffset = 0f
                 candidateRects.add(cell)
 
                 if (index == highlighted) {
-                    candidatePaint.color = style.accent
+                    // 高亮候选统一用中性色（onSurface），不再用主题主色（否则浅色/透明键盘下是突兀的蓝色）
+                    candidatePaint.color = style.text
                     pillPaint.color = if (style.highlightBg != 0) style.highlightBg else Color.argb(
                         26,
-                        Color.red(style.accent),
-                        Color.green(style.accent),
-                        Color.blue(style.accent),
+                        Color.red(style.text),
+                        Color.green(style.text),
+                        Color.blue(style.text),
                     )
                     // 高亮背景：左边缘贴齐候选栏留白（= 字母 Q 的最左侧边缘），
                     // 宽度 = 文字 + 左右各 8dp，圆角 = 按键圆角。

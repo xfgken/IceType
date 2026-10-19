@@ -1228,49 +1228,40 @@ fun UsageStatsPage() {
     val allStats = remember { UsageStatsStore.queryAll() }
     val startDate = remember { UsageStatsStore.startDate() }
 
-    // 时间范围选择（放最上面）
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-        ),
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(10.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            UsageRange.entries.forEach { r ->
-                val sel = r == range
-                Surface(
-                    onClick = { range = r },
-                    modifier = Modifier.weight(1f),
-                    shape = androidx.compose.foundation.shape.RoundedCornerShape(999.dp),
-                    color = if (sel) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.surfaceContainerHigh
-                    },
-                ) {
-                    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                        Text(
-                            text = r.label,
-                            modifier = Modifier.padding(vertical = 8.dp),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = if (sel) {
-                                MaterialTheme.colorScheme.onPrimary
-                            } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                            },
-                        )
+    SectionCard("累计输入总量") {
+        Item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                UsageRange.entries.forEach { r ->
+                    val sel = r == range
+                    Surface(
+                        onClick = { range = r },
+                        modifier = Modifier.weight(1f),
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(999.dp),
+                        color = if (sel) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.surfaceContainerHigh
+                        },
+                    ) {
+                        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                            Text(
+                                text = r.label,
+                                modifier = Modifier.padding(vertical = 8.dp),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = if (sel) {
+                                    MaterialTheme.colorScheme.onPrimary
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                },
+                            )
+                        }
                     }
                 }
             }
         }
-    }
-
-    SectionCard("累计输入总量") {
         Item {
             Column(
                 modifier = Modifier.fillMaxWidth(),
@@ -1290,7 +1281,6 @@ fun UsageStatsPage() {
             }
         }
     }
-
     SectionCard("分类统计") {
         Item {
             Row(Modifier.fillMaxWidth()) {

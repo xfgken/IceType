@@ -2439,7 +2439,7 @@ class IceInputMethodService : InputMethodService() {
         // 邮箱候选只在「显式处于邮箱模式 + 没被关掉」时才展示；
         // 光靠输入框里有 @ 是不会进来的（这是之前反复抢占候选栏的根因）。
         if (emailMode && !emailBlocked && !suggestionsDismissed &&
-            lastPreedit.isEmpty() && refreshEmailSuggestions()
+            lastPreedit.isEmpty() && clipboardSuggestionText.isNullOrEmpty() && refreshEmailSuggestions()
         ) {
             clearClipboardSuggestion()
             lastPreedit = ""
@@ -2458,7 +2458,8 @@ class IceInputMethodService : InputMethodService() {
             return
         }
         // 英文候选：英文键盘下按已打字母做词表前缀补全
-        if (lastPreedit.isEmpty() && showEnglishSuggestions()) {
+        // 剪贴板建议显示时不让英文词表补全抢占候选栏（否则复制链接/英文后快捷输入弹不出）
+        if (lastPreedit.isEmpty() && clipboardSuggestionText.isNullOrEmpty() && showEnglishSuggestions()) {
             clearClipboardSuggestion()
             lastPreedit = ""
             lastCandidates = englishSuggestions.map { RimeEngine.Candidate(it.first, "") }
@@ -2885,7 +2886,7 @@ class IceInputMethodService : InputMethodService() {
         ClipboardStore.captureFromSystem(this, fromPasswordField = false)
     }
 
-    /** 刷新候选栏的剪贴板建议：开关关闭 / 数字键盘页 / 内容为空 / 已关闭过 → 都不显示。 */
+        /** 刷新候选栏的剪贴板建议：开关关闭 / 数字键盘页 / 内容为空 / 已展示过 → 都不显示。 */
     private fun refreshClipboardSuggestion() {
         if (!prefs.clipboardCandidateEnabled) { clearClipboardSuggestion(); return }
         if (layoutType == LayoutType.NUMBERS) { clearClipboardSuggestion(); return }
@@ -2893,6 +2894,9 @@ class IceInputMethodService : InputMethodService() {
         if (text.isNullOrBlank()) { clearClipboardSuggestion(); return }
         if (text == clipboardSuggestionDismissed) { clearClipboardSuggestion(); return }
         clipboardSuggestionText = text
+        // 展示即消费：候选栏一旦展示过这条剪贴板内容就持久化记住，
+        // 之后（切输入法 / 锁屏 / 进程被杀重启）不再重复弹出，只有复制新内容才重新弹。
+        clipboardSuggestionDismissed = text
         candidateBar?.setClipboardSuggestion(text)
         refreshActionRow()
     }
