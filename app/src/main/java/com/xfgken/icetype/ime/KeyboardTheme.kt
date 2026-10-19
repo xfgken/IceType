@@ -407,7 +407,7 @@ object KeyboardTheme {
             outline = p.outline,
             buttonBg = p.funcKeyBg,
             iconTint = p.onSurfaceVariant,
-            highlightBg = (if (!p.isDark) settings.funcKeyBgArgb else null) ?: 0,
+            highlightBg = if (p.glass) 0 else (if (!p.isDark) settings.funcKeyBgArgb else null) ?: 0,
             // 候选词高亮背景的圆角跟随「按键圆角」设置（0dp 就变成方角）
             cornerPx = settings.keyCornerDp * density,
             // 按钮栏按钮（含候选栏右侧 ✕）的圆角跟随「按钮栏圆角」设置
